@@ -9,6 +9,11 @@ from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelextrema
 
 
+#TODO - improve accuracy measures
+#TODO - implement better way of passing in settings for various options (eg - way of breaking up txt)
+#TODO - provide option for just saving plots, instead of displaying them first
+#TODO - Allow for ground truths to be read in from files, rather than lists
+
 class SceneSegmenter():
     def __init__(self, model_name='all-MiniLM-L6-v2'):
         nltk.download('punkt')
@@ -33,6 +38,7 @@ class SceneSegmenter():
 
     #Input: filename for a txt file
     def run(self, filename, sigma=3, plot=False, ground_truth=None):
+
         deltaY = []
 
         np_outputs, token_length = self.generate_embeddings(filename)
@@ -48,8 +54,8 @@ class SceneSegmenter():
             self.plot_scenes(deltaY_smoothed, minima_indices.tolist(), sigma, filename, ground_truth)
 
         if ground_truth is not None:
-            accuracy = self.calc_accuracy(deltaY_smoothed, ground_truth, token_length)
-            alt_accuracy = self.calc_accuracy_alt(deltaY_smoothed, ground_truth)
+            accuracy = self.calc_accuracy(minima_indices.tolist(), ground_truth, token_length)
+            alt_accuracy = self.calc_accuracy_alt(minima_indices.tolist(), ground_truth)
             print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
 
         return deltaY_smoothed, minima_indices.tolist()
@@ -120,5 +126,5 @@ class SceneSegmenter():
 if __name__ == "__main__":
 
     segmenter = SceneSegmenter()
-    segmenter.run(filename="./Data/Text Files/Observer_1-A_Warm_Home.txt", 
-                  ground_truth=[20, 38, 136, 257, 369, 395, 427, 548, 623], plot=True)
+    segmenter.run(filename="./Falling.txt", 
+                  ground_truth=[40, 70, 103, 134, 169, 197, 261, 308, 337, 362, 405], plot=True)
