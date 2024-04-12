@@ -1,0 +1,1 @@
+'''InputReader is a tool for reading in various file types. '''

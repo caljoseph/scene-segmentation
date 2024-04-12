@@ -8,6 +8,8 @@ import numpy as np
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelextrema
 
+from InputReader import *
+
 
 #TODO - improve accuracy measures
 #TODO - implement better way of passing in settings for various options (eg - way of breaking up txt)
@@ -122,9 +124,3 @@ class SceneSegmenter():
         rating = (len_ratio) *10
 
         return sum(distances)/len(distances) + rating
-
-if __name__ == "__main__":
-
-    segmenter = SceneSegmenter()
-    segmenter.run(filename="./Falling.txt", 
-                  ground_truth=[40, 70, 103, 134, 169, 197, 261, 308, 337, 362, 405], plot=True)
