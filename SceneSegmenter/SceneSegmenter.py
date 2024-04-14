@@ -1,14 +1,10 @@
-import nltk
-import nltk.data
-from sentence_transformers import SentenceTransformer
-
 import matplotlib.pyplot as plt
-import numpy as np
 
-from scipy.ndimage import gaussian_filter1d
-from scipy.signal import argrelextrema
 
-from InputReader import *
+
+from InputReader import InputReader
+from Embedder import Embedder
+from SceneIdentifier import SceneIdentifier
 
 
 #TODO - improve accuracy measures
@@ -17,46 +13,34 @@ from InputReader import *
 #TODO - Allow for ground truths to be read in from files, rather than lists
 
 class SceneSegmenter():
-    def __init__(self, model_name='all-MiniLM-L6-v2'):
-        nltk.download('punkt')
-
+    def __init__(self, model_name='all-MiniLM-L6-v2', split_method="sentences", split_len=50, smooth="gaussian1d", diff="2norm"):
+        
+        self.input_reader = InputReader(split_method, split_len)
         #models = ['all-MiniLM-L6-v2', 'all-MiniLM-L12-v2', 'all-mpnet-base-v2']
+        self.embedder = Embedder(model_name=model_name)
+        self.scene_identifier = SceneIdentifier(diff=diff, smooth=smooth)
 
-        self.model = SentenceTransformer(model_name)
-
-
-    #generates embeddings from a txt file
-    def generate_embeddings(self, filename):
-        text = open(filename, "r", encoding="utf8").read()
-        tokens = nltk.word_tokenize(text)
-        sent_text = nltk.sent_tokenize(text)
-
-        embeddings = self.model.encode(sent_text)
-        outputs = []
-        for embedding in embeddings:
-            outputs.append(embedding)
-        return outputs, len(tokens)
+        
 
 
     #Input: filename for a txt file
     def run(self, filename, sigma=3, plot=False, ground_truth=None):
 
-        deltaY = []
+        #Ground truth can be drawn from a CSV or input as an array
+        if ground_truth is None:
+            split_sent, ground_truth, num_tokens = self.input_reader.read(filename)
+        else:
+            split_sent, _, num_tokens = self.input_reader.read(filename)
 
-        np_outputs, token_length = self.generate_embeddings(filename)
+        embeddings = self.embedder.generate_embeddings(split_sent)
 
-        for n in range(len(np_outputs)-1):
-            deltaY.append(np.linalg.norm(np_outputs[n]-np_outputs[n+1]))
-
-        deltaY_smoothed = gaussian_filter1d(deltaY, sigma)
-
-        minima_indices = argrelextrema(deltaY_smoothed, np.less)[0]
+        deltaY, deltaY_smoothed, minima_indices = self.scene_identifier.identify(embeddings, sigma)
 
         if plot:
             self.plot_scenes(deltaY_smoothed, minima_indices.tolist(), sigma, filename, ground_truth)
 
         if ground_truth is not None:
-            accuracy = self.calc_accuracy(minima_indices.tolist(), ground_truth, token_length)
+            accuracy = self.calc_accuracy(minima_indices.tolist(), ground_truth, num_tokens)
             alt_accuracy = self.calc_accuracy_alt(minima_indices.tolist(), ground_truth)
             print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
 
@@ -76,7 +60,6 @@ class SceneSegmenter():
         for loclal_min in system_output:
             plt.plot(loclal_min, deltaY_smoothed[loclal_min], marker="o", markersize=5, markeredgecolor="black", markerfacecolor="red")
         plt.show()
-
 
     def calc_accuracy(self, scene_partitions1, scene_partitions2, max_tokens):
         accuracy = 0
@@ -109,7 +92,6 @@ class SceneSegmenter():
         # print(pointwise_error)
 
         return pointwise_error/max_tokens
-
 
     #A measure combining nearest scenes and number of scenes.
     def calc_accuracy_alt(self, system_output, ground_truth):
