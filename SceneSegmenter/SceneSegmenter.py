@@ -26,9 +26,19 @@ class SceneSegmenter():
     #Input: filename for a txt file
     def run(self, filename, sigma=3, plot=False, ground_truth=None, split_method="sentences", 
             split_len=50, smooth="gaussian1d", diff="2norm"):
+        
+        #check inputs
+        if ".csv" not in filename and ".txt" not in filename:
+            raise ValueError(f'{filename} is not a .txt or .csv file')
+        if split_method not in ["sentences", "tokens"]:
+            raise ValueError(f'{split_method} is an invalid value for split_method, allowed values are: {["sentences", "tokens"]}')
+        if diff not in ["2norm"]:
+            raise ValueError(f"{diff} is invalid difference measure. Valid values are ['2norm']")
+        if smooth not in ["gaussian1d", None]:
+            raise ValueError(f"{smooth} is invalid smoothing method. Valid values are ['gaussian1d', None]")
 
-        #Ground truth can be drawn from a CSV or input as an array
-        if ground_truth is None:
+        #Ground truth can be drawn from a CSV or input as an array corresponding to sentence number for scenes
+        if ".csv" in filename:
             split_sent, ground_truth, num_tokens = self.input_reader.read(filename, split_method, split_len)
         else:
             split_sent, _, num_tokens = self.input_reader.read(filename, split_method, split_len)
@@ -37,13 +47,13 @@ class SceneSegmenter():
 
         deltaY, deltaY_smoothed, minima_indices = self.scene_identifier.identify(embeddings, sigma, smooth, diff)
 
-        if plot:
-            self.plot_scenes(deltaY_smoothed, minima_indices.tolist(), sigma, filename, ground_truth)
-
         if ground_truth is not None:
             accuracy = self.calc_accuracy(minima_indices.tolist(), ground_truth, num_tokens)
             alt_accuracy = self.calc_accuracy_alt(minima_indices.tolist(), ground_truth)
             print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
+
+        if plot:
+            self.plot_scenes(deltaY_smoothed, minima_indices.tolist(), sigma, filename, ground_truth)
 
         return deltaY_smoothed, minima_indices.tolist()
 

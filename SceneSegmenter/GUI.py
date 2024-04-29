@@ -48,9 +48,19 @@ class SE_GUI():
         self.difference_measure_entry.grid(row=6, column=1)
         self.difference_measure_entry.insert(0, "2norm")  # Default value
 
+        sigma_label = ttk.Label(root, text="Sigma:")
+        sigma_label.grid(row=6, column=0)
+        self.sigma_entry = ttk.Entry(root)
+        self.sigma_entry.grid(row=7, column=1)
+        self.sigma_entry.insert(0, 3)  # Default value
+
         # Create a Run button
         run_button = ttk.Button(root, text="Run", command=self.run_action)
-        run_button.grid(row=7, column=1)
+        run_button.grid(row=8, column=1)
+
+        # Create an Options button
+        options_button = ttk.Button(root, text="Options", command=self.print_options_action)
+        options_button.grid(row=8, column=0, sticky="W")
 
         # Start the GUI event loop
         root.mainloop()
@@ -64,25 +74,38 @@ class SE_GUI():
         split_length_value = self.split_length_entry.get()
         smooth_value = self.smooth_entry.get()
         difference_measure_value = self.difference_measure_entry.get()
-
-        #check inputs
-        if split_method_value not in ["sentences", "tokens"]:
-            raise ValueError(f'{split_method_value} is an invalid value for split_method, allowed values are: {["sentences", "tokens"]}')
-        if difference_measure_value not in ["2norm"]:
-            raise ValueError(f"{difference_measure_value} is invalid difference measure. Valid values are ['2norm']")
-        if smooth_value not in ["gaussian1d", "none", None]:
-            raise ValueError(f"{smooth_value} is invalid smoothing method. Valid values are ['gaussian1d', None]")
+        sigma_value = self.sigma_entry.get()
         
         #get inputs into right types
         if smooth_value == "none":
             smooth_value = None
+
+        split_length_value = int(split_length_value)
+        sigma_value = float(sigma_value)
         
 
         
-        self.function(filename=filename_value, 
+        try:
+            self.function(filename=filename_value, 
                   split_method=split_method_value,
                   smooth=smooth_value,
                   diff=difference_measure_value,
-                  plot=plot_value)
+                  plot=plot_value,
+                  sigma=sigma_value)
+        except (TypeError, ValueError) as e:
+            print(f"An error occurred: {e}")
         
         return plot_value, filename_value, split_method_value, split_length_value, smooth_value, difference_measure_value        
+    
+    def print_options_action(self):
+        options = \
+        {"filename" : [".txt (raw text)", ".csv (ground truth)"],
+        "split_method (only used with txt files)": ["sentences", "tokens"],
+        "smooth": ["gaussian1d", None],
+        "diff": ["2norm"]}
+
+        print("Options are as follows: ")
+        for key in options.keys():
+            print(f'{key}: {options[key]}')
+        print("")
+

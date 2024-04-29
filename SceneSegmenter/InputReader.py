@@ -17,7 +17,7 @@ class InputReader():
             sentences = []
 
             # Read the CSV file
-            with open(filename, newline='') as csvfile:
+            with open(filename, newline='', encoding="utf-8") as csvfile:
                 reader = csv.reader(csvfile)
                 for index, row in enumerate(reader):
                     # Check the first column for '1'
