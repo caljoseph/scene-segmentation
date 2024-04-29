@@ -13,28 +13,29 @@ from SceneIdentifier import SceneIdentifier
 #TODO - Allow for ground truths to be read in from files, rather than lists
 
 class SceneSegmenter():
-    def __init__(self, model_name='all-MiniLM-L6-v2', split_method="sentences", split_len=50, smooth="gaussian1d", diff="2norm"):
-        
-        self.input_reader = InputReader(split_method, split_len)
+    def __init__(self, model_name='all-MiniLM-L6-v2'):
+
+        self.input_reader = InputReader()
         #models = ['all-MiniLM-L6-v2', 'all-MiniLM-L12-v2', 'all-mpnet-base-v2']
         self.embedder = Embedder(model_name=model_name)
-        self.scene_identifier = SceneIdentifier(diff=diff, smooth=smooth)
+        self.scene_identifier = SceneIdentifier()
 
         
 
 
     #Input: filename for a txt file
-    def run(self, filename, sigma=3, plot=False, ground_truth=None):
+    def run(self, filename, sigma=3, plot=False, ground_truth=None, split_method="sentences", 
+            split_len=50, smooth="gaussian1d", diff="2norm"):
 
         #Ground truth can be drawn from a CSV or input as an array
         if ground_truth is None:
-            split_sent, ground_truth, num_tokens = self.input_reader.read(filename)
+            split_sent, ground_truth, num_tokens = self.input_reader.read(filename, split_method, split_len)
         else:
-            split_sent, _, num_tokens = self.input_reader.read(filename)
+            split_sent, _, num_tokens = self.input_reader.read(filename, split_method, split_len)
 
         embeddings = self.embedder.generate_embeddings(split_sent)
 
-        deltaY, deltaY_smoothed, minima_indices = self.scene_identifier.identify(embeddings, sigma)
+        deltaY, deltaY_smoothed, minima_indices = self.scene_identifier.identify(embeddings, sigma, smooth, diff)
 
         if plot:
             self.plot_scenes(deltaY_smoothed, minima_indices.tolist(), sigma, filename, ground_truth)

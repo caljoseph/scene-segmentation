@@ -2,16 +2,10 @@ import nltk
 import csv
 
 class InputReader():
-    def __init__(self, split_method="sentences", split_len=50):
+    def __init__(self):
         nltk.download('punkt')
-        self.split_method = split_method
-        if self.split_method not in ["sentences", "tokens"]:
-            raise ValueError(f"{self.split_method} is an invalid type for split_method")
-        self.split_len = split_len
 
-
-    def read(self, filename):
-
+    def read(self, filename, split_method="sentences", split_len=50):
         if filename.endswith('.txt'):
             text = open(filename, "r", encoding="utf8").read()
             sentences = nltk.sent_tokenize(text)
@@ -34,17 +28,46 @@ class InputReader():
 
         num_tokens = self.count_tokens(sentences)
 
-        splt_text = self.splitter(sentences)
+        splt_text = self.splitter(sentences, split_method, split_len)
 
         return splt_text, ground_truth, num_tokens
     
 
-    def splitter(self, sentences): 
-        if self.split_method == "sentences":
+    def splitter(self, sentences, split_method, split_len): 
+        #Does not change how sentences are split
+        if split_method == "sentences":
             return sentences
-        if self.split_method == "tokens":
-            #TODO - implement a method using self.split_len
-            print("Token Split not implemented")
+        
+        #Combine sentences into blocks of min length "split_len"
+        #FIXME - does not currently work with ground truths
+        if split_method == "tokens": 
+            combined = []  
+            current_segment = [] 
+            current_length = 0 
+
+            for sentence in sentences:
+                tokens = nltk.tokenize.word_tokenize(sentence)
+                num_tokens = len(tokens)
+                
+                # If adding this sentence would make the segment at least min_length
+                if current_length + num_tokens >= split_len:
+                    current_segment.append(sentence)
+                    combined_segment = ' '.join(current_segment)
+                    combined.append(combined_segment)
+                    current_segment = []  # Reset for the next segment
+                    current_length = 0
+                else:
+                    current_segment.append(sentence)
+                    current_length += num_tokens
+
+            # Handle any remaining sentences that did not meet the min_length by themselves
+            if current_segment:
+                combined_segment = ' '.join(current_segment)
+                combined.append(combined_segment)
+
+            sentences = combined
+
+            
             return sentences
 
 
