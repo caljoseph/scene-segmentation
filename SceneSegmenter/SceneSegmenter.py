@@ -8,10 +8,8 @@ from Embedder import Embedder
 from SceneIdentifier import SceneIdentifier
 
 
-#TODO - improve accuracy measures
-#TODO - implement better way of passing in settings for various options (eg - way of breaking up txt)
+#TODO - Additional accuracy measures
 #TODO - provide option for just saving plots, instead of displaying them first
-#TODO - Allow for ground truths to be read in from files, rather than lists
 
 class SceneSegmenter():
     def __init__(self, model_name='all-MiniLM-L6-v2'):
@@ -31,7 +29,7 @@ class SceneSegmenter():
         #check inputs
         if ".csv" not in filename and ".txt" not in filename:
             raise ValueError(f'{filename} is not a .txt or .csv file')
-        if split_method not in ["sentences", "tokens_exact", "tokens_min"]:
+        if split_method not in ["sentences", "tokens_exact", "tokens_min"] and "token" not in split_method:
             raise ValueError(f'{split_method} is an invalid value for split_method, allowed values are: {["sentences", "tokens_exact", "tokens_min"]}')
         if not bool(re.fullmatch(r"(inf|\d+)norm", diff)) and "cosin" not in diff:
             raise ValueError(f"{diff} is invalid difference measure. Valid values are ['pnorm', 'cosine similarity]")
@@ -54,14 +52,18 @@ class SceneSegmenter():
             print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
 
         if plot:
-            self.plot_scenes(deltaY_smoothed, minima_indices.tolist(), sigma, filename, ground_truth)
+            self.plot_scenes(deltaY_smoothed, minima_indices.tolist(), sigma, filename, ground_truth, split_len=split_len, split_method=split_method)
 
         return deltaY_smoothed, minima_indices.tolist()
 
 
-    def plot_scenes(self, deltaY_smoothed, system_output, sigma, filename, ground_truth=None):
+    def plot_scenes(self, deltaY_smoothed, system_output, sigma, filename, ground_truth=None, split_len=None, split_method="sentences"):
         plt_1 = plt.figure(figsize=(25, 2))
-        plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma})")
+        if split_method == "sentences":
+            plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma}, {split_method})")
+        elif "token" in split_method:
+            plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma}, {split_method}, num tokens: {split_len})")
+            
         plt.xlabel("Sentence (narrative order)")
         plt.ylabel("Change in Embeddings")
         plt.xlim([0,len(deltaY_smoothed)-1])

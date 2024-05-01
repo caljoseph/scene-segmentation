@@ -31,7 +31,9 @@ class SceneIdentifier():
         if smooth == "gaussian1d":
             deltaY_smoothed = gaussian_filter1d(deltaY, sigma)
         elif smooth is None:
-            deltaY_smoothed = deltaY
+            deltaY_smoothed = np.array(deltaY)
+
+        
 
         minima_indices = argrelextrema(deltaY_smoothed, np.less)[0]
 

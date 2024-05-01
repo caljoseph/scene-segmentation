@@ -49,7 +49,7 @@ class SE_GUI():
         self.difference_measure_entry.insert(0, "2norm")  # Default value
 
         sigma_label = ttk.Label(root, text="Sigma:")
-        sigma_label.grid(row=6, column=0)
+        sigma_label.grid(row=7, column=0)
         self.sigma_entry = ttk.Entry(root)
         self.sigma_entry.grid(row=7, column=1)
         self.sigma_entry.insert(0, 3)  # Default value
@@ -88,6 +88,7 @@ class SE_GUI():
         try:
             self.function(filename=filename_value, 
                   split_method=split_method_value,
+                  split_len = split_length_value,
                   smooth=smooth_value,
                   diff=difference_measure_value,
                   plot=plot_value,
