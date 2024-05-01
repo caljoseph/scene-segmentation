@@ -1,4 +1,5 @@
 import numpy as np
+import re
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import argrelextrema
 
@@ -13,9 +14,18 @@ class SceneIdentifier():
 
         deltaY = [] #differences between embeddings
 
-        if diff == "2norm":
+        if bool(re.fullmatch(r"(inf|\d+)norm", diff)): #regular expression for extracting norms
+            if "inf" in diff:
+                p = np.inf
+            else:
+                p = int(re.search(r"(\d+)norm", diff).group(1))
             for n in range(len(embeddings)-1):
-                deltaY.append(np.linalg.norm(embeddings[n]-embeddings[n+1]))
+                deltaY.append(np.linalg.norm(embeddings[n]-embeddings[n+1], p))
+                
+            
+        if "cosin" in diff: #cosign similarity
+            for n in range(len(embeddings)-1):
+                deltaY.append(np.dot(embeddings[n], embeddings[n+1]) / (np.linalg.norm(embeddings[n]) * np.linalg.norm(embeddings[n+1])))
 
 
         if smooth == "gaussian1d":

@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import re
 
 
 
@@ -30,10 +31,10 @@ class SceneSegmenter():
         #check inputs
         if ".csv" not in filename and ".txt" not in filename:
             raise ValueError(f'{filename} is not a .txt or .csv file')
-        if split_method not in ["sentences", "tokens"]:
-            raise ValueError(f'{split_method} is an invalid value for split_method, allowed values are: {["sentences", "tokens"]}')
-        if diff not in ["2norm"]:
-            raise ValueError(f"{diff} is invalid difference measure. Valid values are ['2norm']")
+        if split_method not in ["sentences", "tokens_exact", "tokens_min"]:
+            raise ValueError(f'{split_method} is an invalid value for split_method, allowed values are: {["sentences", "tokens_exact", "tokens_min"]}')
+        if not bool(re.fullmatch(r"(inf|\d+)norm", diff)) and "cosin" not in diff:
+            raise ValueError(f"{diff} is invalid difference measure. Valid values are ['pnorm', 'cosine similarity]")
         if smooth not in ["gaussian1d", None]:
             raise ValueError(f"{smooth} is invalid smoothing method. Valid values are ['gaussian1d', None]")
 
