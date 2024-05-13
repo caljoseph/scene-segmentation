@@ -25,7 +25,7 @@ class SceneIdentifier():
             
         if "cosin" in diff: #cosign similarity
             for n in range(len(embeddings)-1):
-                deltaY.append(np.dot(embeddings[n], embeddings[n+1]) / (np.linalg.norm(embeddings[n]) * np.linalg.norm(embeddings[n+1])))
+                deltaY.append(np.dot(embeddings[n], embeddings[n+1]) / ((np.linalg.norm(embeddings[n]) * np.linalg.norm(embeddings[n+1]))))
 
 
         if smooth == "gaussian1d":

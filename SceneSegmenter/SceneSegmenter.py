@@ -57,12 +57,12 @@ class SceneSegmenter():
         return deltaY_smoothed, minima_indices.tolist()
 
 
-    def plot_scenes(self, deltaY_smoothed, system_output, sigma, filename, ground_truth=None, split_len=None, split_method="sentences"):
+    def plot_scenes(self, deltaY_smoothed, system_output, sigma, filename, diff="none" ,ground_truth=None, split_len=None, split_method="sentences"):
         plt_1 = plt.figure(figsize=(25, 2))
         if split_method == "sentences":
-            plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma}, {split_method})")
+            plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma}, diff={diff}, {split_method})")
         elif "token" in split_method:
-            plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma}, {split_method}, num tokens: {split_len})")
+            plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma}, diff={diff}, {split_method}, num tokens: {split_len})")
             
         plt.xlabel("Sentence (narrative order)")
         plt.ylabel("Change in Embeddings")
