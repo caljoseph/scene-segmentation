@@ -15,7 +15,7 @@ class SceneSegmenter():
     def __init__(self, model_name='all-MiniLM-L6-v2'):
 
         self.input_reader = InputReader()
-        #models = ['all-MiniLM-L6-v2', 'all-MiniLM-L12-v2', 'all-mpnet-base-v2']
+        #models = ['all-MiniLM-L6-v2', 'all-MiniLM-L12-v2', 'all-mpnet-base-v2', 'multi-qa-mpnet-base-dot-v1']
         self.embedder = Embedder(model_name=model_name)
         self.scene_identifier = SceneIdentifier()
 
@@ -24,8 +24,12 @@ class SceneSegmenter():
 
     #Input: filename for a txt file
     def run(self, filename, sigma=3, plot=False, ground_truth=None, split_method="sentences", 
-            split_len=50, smooth="gaussian1d", diff="2norm"):
+            split_len=50, smooth="gaussian1d", diff="2norm", model_name='all-MiniLM-L6-v2'):
         
+        #model_name is checked inside the embedder 
+        if self.embedder.model_name is not model_name:
+            self.embedder.update_model(model_name)
+
         #check inputs
         if ".csv" not in filename and ".txt" not in filename:
             raise ValueError(f'{filename} is not a .txt or .csv file')

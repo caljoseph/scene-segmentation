@@ -23,6 +23,13 @@ class SE_GUI():
         self.filename_entry.grid(row=1, column=1)
         self.filename_entry.insert(0, "Falling.txt")  # Default value
 
+        # Create input boxes with labels and default values
+        model_label = ttk.Label(root, text="Model:")
+        model_label.grid(row=2, column=0)
+        self.model_entry = ttk.Entry(root)
+        self.model_entry.grid(row=2, column=1)
+        self.model_entry.insert(0, 'all-MiniLM-L6-v2') 
+
 
         split_method_label = ttk.Label(root, text="Split Method:")
         split_method_label.grid(row=3, column=0)
@@ -70,6 +77,7 @@ class SE_GUI():
         # Retrieving data from the GUI elements
         plot_value = self.plot_var.get()
         filename_value = self.filename_entry.get()
+        model_name_value = self.model_entry.get()
         split_method_value = self.split_method_entry.get()
         split_length_value = self.split_length_entry.get()
         smooth_value = self.smooth_entry.get()
@@ -92,7 +100,8 @@ class SE_GUI():
                   smooth=smooth_value,
                   diff=difference_measure_value,
                   plot=plot_value,
-                  sigma=sigma_value)
+                  sigma=sigma_value,
+                  model_name=model_name_value)
         except (TypeError, ValueError) as e:
             print(f"An error occurred: {e}")
         
