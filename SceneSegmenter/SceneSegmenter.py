@@ -31,8 +31,8 @@ class SceneSegmenter():
             raise ValueError(f'{filename} is not a .txt or .csv file')
         if split_method not in ["sentences", "tokens_exact", "tokens_min"] and "token" not in split_method:
             raise ValueError(f'{split_method} is an invalid value for split_method, allowed values are: {["sentences", "tokens_exact", "tokens_min"]}')
-        if not bool(re.fullmatch(r"(inf|\d+)norm", diff)) and "cosin" not in diff:
-            raise ValueError(f"{diff} is invalid difference measure. Valid values are ['pnorm', 'cosine similarity]")
+        if not bool(re.fullmatch(r"(inf|\d+)norm", diff)) and "cos" not in diff:
+            raise ValueError(f"{diff} is invalid difference measure. Valid values are ['pnorm', 'cosine']")
         if smooth not in ["gaussian1d", None]:
             raise ValueError(f"{smooth} is invalid smoothing method. Valid values are ['gaussian1d', None]")
 
@@ -52,7 +52,7 @@ class SceneSegmenter():
             print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
 
         if plot:
-            self.plot_scenes(deltaY_smoothed, minima_indices.tolist(), sigma, filename, ground_truth, split_len=split_len, split_method=split_method)
+            self.plot_scenes(deltaY_smoothed, minima_indices.tolist(), sigma, filename, diff, ground_truth, split_len=split_len, split_method=split_method)
 
         return deltaY_smoothed, minima_indices.tolist()
 

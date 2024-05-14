@@ -77,7 +77,7 @@ class SE_GUI():
         sigma_value = self.sigma_entry.get()
         
         #get inputs into right types
-        if smooth_value == "none":
+        if smooth_value == "none" or smooth_value == "None":
             smooth_value = None
 
         split_length_value = int(split_length_value)

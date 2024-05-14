@@ -14,19 +14,23 @@ class SceneIdentifier():
 
         deltaY = [] #differences between embeddings
 
-        if bool(re.fullmatch(r"(inf|\d+)norm", diff)): #regular expression for extracting norms
+        # Regular expression for extracting norms
+        if bool(re.fullmatch(r"(inf|\d+)norm", diff)):
             if "inf" in diff:
                 p = np.inf
             else:
                 p = int(re.search(r"(\d+)norm", diff).group(1))
             for n in range(len(embeddings)-1):
                 deltaY.append(np.linalg.norm(embeddings[n]-embeddings[n+1], p))
-                
-            
-        if "cosin" in diff: #cosign similarity
-            for n in range(len(embeddings)-1):
-                deltaY.append(np.dot(embeddings[n], embeddings[n+1]) / ((np.linalg.norm(embeddings[n]) * np.linalg.norm(embeddings[n+1]))))
 
+        # Corrected typo in "cosine" and improved condition
+        if "cos" in diff:
+            for n in range(len(embeddings)-1):
+                norm_product = (np.linalg.norm(embeddings[n]) * np.linalg.norm(embeddings[n+1]))
+                if norm_product != 0:  # Avoid division by zero
+                    deltaY.append(np.dot(embeddings[n], embeddings[n+1]) / norm_product)
+                else:
+                    deltaY.append(0)  # Append 0 or some other placeholder for zero norm vectors
 
         if smooth == "gaussian1d":
             deltaY_smoothed = gaussian_filter1d(deltaY, sigma)
