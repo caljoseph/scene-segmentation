@@ -27,7 +27,7 @@ class SceneSegmenter():
             split_len=50, smooth="gaussian1d", diff="2norm", model_name='all-MiniLM-L6-v2'):
         
         #model_name is checked inside the embedder 
-        if self.embedder.model_name is not model_name:
+        if self.embedder.model_name != model_name:
             self.embedder.update_model(model_name)
 
         #check inputs
