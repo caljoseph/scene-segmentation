@@ -15,7 +15,6 @@ class SceneSegmenter():
     def __init__(self, model_name='all-MiniLM-L6-v2'):
 
         self.input_reader = InputReader()
-        #models = ['all-MiniLM-L6-v2', 'all-MiniLM-L12-v2', 'all-mpnet-base-v2', 'multi-qa-mpnet-base-dot-v1']
         self.embedder = Embedder(model_name=model_name)
         self.scene_identifier = SceneIdentifier()
 
@@ -28,7 +27,8 @@ class SceneSegmenter():
         
         #model_name is checked inside the embedder 
         if self.embedder.model_name != model_name:
-            self.embedder.update_model(model_name)
+            print(f"Changing model from {self.embedder.model_name} to {model_name}")
+            self.embedder.set_model(model_name)
 
         #check inputs
         if ".csv" not in filename and ".txt" not in filename:
@@ -64,9 +64,9 @@ class SceneSegmenter():
     def plot_scenes(self, deltaY_smoothed, system_output, sigma, filename, diff="none" ,ground_truth=None, split_len=None, split_method="sentences"):
         plt_1 = plt.figure(figsize=(25, 2))
         if split_method == "sentences":
-            plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma}, diff={diff}, {split_method})")
+            plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma}, diff={diff}, {split_method}) using {self.embedder.model_name}")
         elif "token" in split_method:
-            plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma}, diff={diff}, {split_method}, num tokens: {split_len})")
+            plt.title(f"Difference in Sentence Embeddings for '{filename}' (sigma={sigma}, diff={diff}, {split_method}, num tokens: {split_len}) using {self.embedder.model_name}")
             
         plt.xlabel("Sentence (narrative order)")
         plt.ylabel("Change in Embeddings")
@@ -113,7 +113,7 @@ class SceneSegmenter():
 
     #A measure combining nearest scenes and number of scenes.
     def calc_accuracy_alt(self, system_output, ground_truth):
-        #avg distance from gt scenes to nearest system output scenes
+        #smallest distance from gt scenes to nearest system output scenes
         distances = []
         for scene_gt in ground_truth:
             nearest_distance = min([abs(scene_gt - scene_sys) for scene_sys in system_output])
@@ -121,6 +121,5 @@ class SceneSegmenter():
 
         #number of scenes - difference in number of scenes divided by average number of scenes
         len_ratio = abs(len(system_output) - len(ground_truth)) / ((len(system_output) + len(ground_truth))/2)
-        rating = (len_ratio) *10
 
-        return sum(distances)/len(distances) + rating
+        return sum(distances)/len(distances) * len_ratio
