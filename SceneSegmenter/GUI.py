@@ -21,7 +21,7 @@ class SE_GUI():
         filename_label.grid(row=1, column=0)
         self.filename_entry = ttk.Entry(root)
         self.filename_entry.grid(row=1, column=1)
-        self.filename_entry.insert(0, "Falling.txt")  # Default value
+        self.filename_entry.insert(0, "./Data/Falling.txt")  # Default value
 
         # Create input boxes with labels and default values
         model_label = ttk.Label(root, text="Model:")

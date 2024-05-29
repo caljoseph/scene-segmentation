@@ -15,7 +15,7 @@ if __name__ == "__main__":
 
 #     segmenter = SceneSegmenter()
 
-#     segmenter.run(filename="./Falling.csv", 
+#     segmenter.run(filename="./Data/Falling.csv", 
 #                   split_method="sentences",
 #                   smooth="gaussian1d",
 #                   plot=True)
