@@ -1,6 +1,6 @@
 import csv
-from InputReader import InputReader
-from Embedder import Embedder
+from SceneSegmenter.InputReader import InputReader
+from SceneSegmenter.Embedder import Embedder
 import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA

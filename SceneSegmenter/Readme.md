@@ -1,4 +1,6 @@
-This folder contains the python implementation of the scene segmentation research. It has the following structure:
+This folder contains the python implementation of the scene segmentation research. 
+Note that this is also a package that can be pip installed. [Not yet implementated]
+It has the following structure:
 
 ## Files
 ### SceneSegment.py:

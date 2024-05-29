@@ -1,0 +1,1 @@
+This folder includes the code to train and test a classifier for use in the Scene Segmentation package. 
