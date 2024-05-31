@@ -5,12 +5,7 @@ from scipy.signal import argrelextrema
 
 
 class SceneIdentifier():
-    def __init__(self, diff = "2norm", smooth="gaussian1d"):
-        self.difference_measure = diff
-        
-
-
-    def identify(self, embeddings, sigma, smooth, diff):
+     def identify(self, embeddings, sigma, smooth, diff):
 
         deltaY = [] #differences between embeddings
 
@@ -37,9 +32,42 @@ class SceneIdentifier():
         elif smooth is None:
             deltaY_smoothed = np.array(deltaY)
 
-        
-
         minima_indices = argrelextrema(deltaY_smoothed, np.less)[0]
 
+        #Apply classifier model here
+
         return deltaY, deltaY_smoothed, minima_indices
-    
+     
+     def apply_classifier(self, minima_indices, sentences, embedder, classifier, alignment="center", k=1):
+        # TODO - Add warning if the embedder is different from what the classifier used
+        # if embedder != classifier.embedder:
+        #     print("Warning: The embedder used is different from the one the classifier was trained with.")
+
+        # TODO - 
+        potential_scenes = []
+        
+        for index in minima_indices:
+            if alignment == "center":
+                start_idx = max(0, index - k)
+                end_idx = min(len(sentences), index + k + 1)
+            elif alignment == "left":
+                start_idx = max(0, index)
+                end_idx = min(len(sentences), index + 2 * k + 1)
+            elif alignment == "right":
+                start_idx = max(0, index - 2 * k)
+                end_idx = min(len(sentences), index + 1)
+            else:
+                raise ValueError("Invalid alignment argument. Choose from 'left', 'center', or 'right'.")
+            
+            combined_scene = ' '.join(sentences[start_idx:end_idx])
+            potential_scenes.append(combined_scene)
+        
+        # Process potential_scenes using the embedder and classifier
+        embeddings = embedder.generate_embeddings(potential_scenes)
+        classifications = classifier.predict(embeddings)
+
+        #TODO - make sure that the classifications are in a meaningful format
+        
+        return classifications
+                
+        

@@ -23,7 +23,8 @@ class SceneSegmenter():
 
     #Input: filename for a txt file
     def run(self, filename, sigma=3, plot=False, ground_truth=None, split_method="sentences", 
-            split_len=50, smooth="gaussian1d", diff="2norm", model_name='all-MiniLM-L6-v2'):
+            split_len=50, smooth="gaussian1d", diff="2norm", model_name='all-MiniLM-L6-v2',
+            classifier=None):
         
         #model_name is checked inside the embedder 
         if self.embedder.model_name != model_name:
@@ -39,6 +40,8 @@ class SceneSegmenter():
             raise ValueError(f"{diff} is invalid difference measure. Valid values are ['pnorm', 'cosine']")
         if smooth not in ["gaussian1d", None]:
             raise ValueError(f"{smooth} is invalid smoothing method. Valid values are ['gaussian1d', None]")
+        if classifier not in ["default", None]:
+            raise ValueError(f"{smooth} is invalid smoothing method. Valid values are ['default']")
 
         #Ground truth can be drawn from a CSV or input as an array corresponding to sentence number for scenes
         if ".csv" in filename:
@@ -49,6 +52,11 @@ class SceneSegmenter():
         embeddings = self.embedder.generate_embeddings(split_sent)
 
         deltaY, deltaY_smoothed, minima_indices = self.scene_identifier.identify(embeddings, sigma, smooth, diff)
+
+        if classifier == "default":
+            scenes = self.scene_identifier.apply_classifier(minima_indices, split_sent, self.embedder, classifier, 
+                                                   alignment="center", k = 1)
+
 
         if ground_truth is not None:
             accuracy = self.calc_accuracy(minima_indices.tolist(), ground_truth, num_tokens)
