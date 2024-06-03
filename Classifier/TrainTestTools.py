@@ -52,7 +52,7 @@ def evaluate_loss(classifier, data_loader, criterion, device):
 
 
 def train_classifier(classifier, model_path, optimizer, criterion, train_loader, test_loader, val_loader, device,
-                     max_no_improve_epochs=10, val_frequency=5):
+                     max_no_improve_epochs=10, val_frequency=5, embedder_name=""):
     # Training Loop
     epochs = int(input("Enter the number of epochs to train for: "))
     max_accuracy = 0
@@ -105,11 +105,21 @@ def train_classifier(classifier, model_path, optimizer, criterion, train_loader,
         if test_accuracy > max_accuracy:
             stopper_count = 0  # Reset stopping criteria
             max_accuracy = test_accuracy
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': classifier.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-            }, model_path)
+            if embedder_name == '':
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': classifier.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'model_architecture': type(classifier),
+                }, model_path)
+            else:
+                    torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': classifier.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'model_architecture': type(classifier),
+                    'embedder_name': embedder_name
+                }, model_path)
         else:
             stopper_count += 1  # Increment stopping criteria
 

@@ -30,7 +30,6 @@ class SE_GUI():
         self.model_entry.grid(row=2, column=1)
         self.model_entry.insert(0, 'all-MiniLM-L6-v2') 
 
-
         split_method_label = ttk.Label(root, text="Split Method:")
         split_method_label.grid(row=3, column=0)
         self.split_method_entry = ttk.Entry(root)
@@ -61,13 +60,20 @@ class SE_GUI():
         self.sigma_entry.grid(row=7, column=1)
         self.sigma_entry.insert(0, 3)  # Default value
 
+        # Create input boxes with labels and default values
+        classifier_path_label = ttk.Label(root, text="Classifier Path:")
+        classifier_path_label.grid(row=8, column=0)
+        self.classifier_path_entry = ttk.Entry(root)
+        self.classifier_path_entry.grid(row=8, column=1)
+        self.classifier_path_entry.insert(0, './Classifiers/classifier_3_layer.pth') 
+
         # Create a Run button
         run_button = ttk.Button(root, text="Run", command=self.run_action)
-        run_button.grid(row=8, column=1)
+        run_button.grid(row=9, column=1)
 
         # Create an Options button
         options_button = ttk.Button(root, text="Options", command=self.print_options_action)
-        options_button.grid(row=8, column=0, sticky="W")
+        options_button.grid(row=10, column=0, sticky="W")
 
         # Start the GUI event loop
         root.mainloop()
@@ -83,10 +89,15 @@ class SE_GUI():
         smooth_value = self.smooth_entry.get()
         difference_measure_value = self.difference_measure_entry.get()
         sigma_value = self.sigma_entry.get()
+        classifier_path = self.classifier_path_entry.get()
         
         #get inputs into right types
         if smooth_value == "none" or smooth_value == "None":
             smooth_value = None
+
+        #get inputs into right types
+        if classifier_path == "none" or classifier_path == "None":
+            classifier_path = None
 
         split_length_value = int(split_length_value)
         sigma_value = float(sigma_value)
@@ -101,7 +112,8 @@ class SE_GUI():
                   diff=difference_measure_value,
                   plot=plot_value,
                   sigma=sigma_value,
-                  model_name=model_name_value)
+                  model_name=model_name_value,
+                  classifier_path = classifier_path)
         except (TypeError, ValueError) as e:
             print(f"An error occurred: {e}")
         

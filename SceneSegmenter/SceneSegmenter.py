@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import re
-
+import os
 
 
 from InputReader import InputReader
@@ -12,11 +12,11 @@ from SceneIdentifier import SceneIdentifier
 #TODO - provide option for just saving plots, instead of displaying them first
 
 class SceneSegmenter():
-    def __init__(self, model_name='all-MiniLM-L6-v2'):
+    def __init__(self, model_name='all-MiniLM-L6-v2', classifier_path='./Classifiers/classifier_3_layer.pth'):
 
         self.input_reader = InputReader()
         self.embedder = Embedder(model_name=model_name)
-        self.scene_identifier = SceneIdentifier()
+        self.scene_identifier = SceneIdentifier(classifier_path=classifier_path)
 
         
 
@@ -24,7 +24,7 @@ class SceneSegmenter():
     #Input: filename for a txt file
     def run(self, filename, sigma=3, plot=False, ground_truth=None, split_method="sentences", 
             split_len=50, smooth="gaussian1d", diff="2norm", model_name='all-MiniLM-L6-v2',
-            classifier=None):
+            classifier_path=None):
         
         #model_name is checked inside the embedder 
         if self.embedder.model_name != model_name:
@@ -40,8 +40,8 @@ class SceneSegmenter():
             raise ValueError(f"{diff} is invalid difference measure. Valid values are ['pnorm', 'cosine']")
         if smooth not in ["gaussian1d", None]:
             raise ValueError(f"{smooth} is invalid smoothing method. Valid values are ['gaussian1d', None]")
-        if classifier not in ["default", None]:
-            raise ValueError(f"{smooth} is invalid smoothing method. Valid values are ['default']")
+        if classifier_path not in [None] and os.path.isfile('classifier_path'):
+            raise ValueError(f"{classifier_path} not found. Use [None] or a valid classifier path.")
 
         #Ground truth can be drawn from a CSV or input as an array corresponding to sentence number for scenes
         if ".csv" in filename:
@@ -49,24 +49,34 @@ class SceneSegmenter():
         else:
             split_sent, _, num_tokens = self.input_reader.read(filename, split_method, split_len)
 
+        #Pass sentences through sentence embedders
         embeddings = self.embedder.generate_embeddings(split_sent)
 
+        #Initial identification of potential scenes
         deltaY, deltaY_smoothed, minima_indices = self.scene_identifier.identify(embeddings, sigma, smooth, diff)
 
-        if classifier == "default":
-            scenes = self.scene_identifier.apply_classifier(minima_indices, split_sent, self.embedder, classifier, 
-                                                   alignment="center", k = 1)
+        if classifier_path:
+            if self.scene_identifier.classifier_path != classifier_path:
+                #Reload if new classifier
+                self.scene_identifier.load_model(classifier_path)
+            
+            #Apply classifier
+            scenes = self.scene_identifier.apply_classifier(minima_indices, split_sent, self.embedder, 
+                                                   alignment="center", k = 4)
+        else:
+            scenes = minima_indices.tolist()
+
 
 
         if ground_truth is not None:
-            accuracy = self.calc_accuracy(minima_indices.tolist(), ground_truth, num_tokens)
-            alt_accuracy = self.calc_accuracy_alt(minima_indices.tolist(), ground_truth)
+            accuracy = self.calc_accuracy(scenes, ground_truth, num_tokens)
+            alt_accuracy = self.calc_accuracy_alt(scenes, ground_truth)
             print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
 
         if plot:
-            self.plot_scenes(deltaY_smoothed, minima_indices.tolist(), sigma, filename, diff, ground_truth, split_len=split_len, split_method=split_method)
+            self.plot_scenes(deltaY_smoothed, scenes, sigma, filename, diff, ground_truth, split_len=split_len, split_method=split_method)
 
-        return deltaY_smoothed, minima_indices.tolist()
+        return deltaY_smoothed, scenes
 
 
     def plot_scenes(self, deltaY_smoothed, system_output, sigma, filename, diff="none" ,ground_truth=None, split_len=None, split_method="sentences"):

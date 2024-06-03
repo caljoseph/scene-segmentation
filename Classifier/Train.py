@@ -26,10 +26,10 @@ embedder = Embedder('all-MiniLM-L6-v2')
 # Load data
 reader = DataReader()
 train_loader, test_loader, val_loader = reader.generate_loaders(embedder, "./Data/example_dataset_with_controls.csv",
-                                                                train_split=0.8, test_split=0.1, val_split=0.1)
+                                                                train_split=0.7, test_split=0.15, val_split=0.15)
 
 # Initialize stuff for training
-classifier = Classifier(embedding_dim=384, hidden_dim=128, output_dim=1).to(device)
+classifier = Classifier(embedding_dim=384, hidden_dim=128, output_dim=1, layers=3).to(device)
 optimizer = optim.Adam(classifier.parameters(), lr=1e-3, weight_decay=1e-3)
 criterion = nn.BCEWithLogitsLoss()
 
@@ -38,7 +38,7 @@ scheduler = ReduceLROnPlateau(optimizer, 'min', patience=5)
 # scheduler = StepLR(optimizer, step_size=10, gamma=0.1)  # Every 10 epochs, lr = lr * 0.1
 
 # Model save path #TODO - automatically name files according to architecture and accuracy (or save those things seperately?)
-model_path = './Models/classifier_state.pth'
+model_path = './Models/classifier_3_layer.pth'
 
 
 # Train/Test the model
@@ -46,7 +46,8 @@ val_frequency=5
 train_losses, val_losses, train_accuracies, val_accuracies = train_classifier(classifier, model_path, optimizer, criterion, 
                                                                               train_loader, test_loader, val_loader, device,
                                                                               val_frequency=val_frequency, 
-                                                                              max_no_improve_epochs=100)
+                                                                              max_no_improve_epochs=50,
+                                                                              embedder_name=embedder.model_name)
 
 # Plot the train and validation accuracies and losses
 plt.figure(figsize=(14, 6))

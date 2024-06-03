@@ -5,7 +5,10 @@ from scipy.signal import argrelextrema
 
 
 class SceneIdentifier():
-     def identify(self, embeddings, sigma, smooth, diff):
+    def __init__(self, classifier_path=None):
+        self.load_model(classifier_path)
+
+    def identify(self, embeddings, sigma, smooth, diff):
 
         deltaY = [] #differences between embeddings
 
@@ -34,16 +37,14 @@ class SceneIdentifier():
 
         minima_indices = argrelextrema(deltaY_smoothed, np.less)[0]
 
-        #Apply classifier model here
-
         return deltaY, deltaY_smoothed, minima_indices
      
-     def apply_classifier(self, minima_indices, sentences, embedder, classifier, alignment="center", k=1):
+    def apply_classifier(self, minima_indices, sentences, embedder, alignment="center", k=1):
+        import torch
         # TODO - Add warning if the embedder is different from what the classifier used
         # if embedder != classifier.embedder:
         #     print("Warning: The embedder used is different from the one the classifier was trained with.")
 
-        # TODO - 
         potential_scenes = []
         
         for index in minima_indices:
@@ -64,10 +65,34 @@ class SceneIdentifier():
         
         # Process potential_scenes using the embedder and classifier
         embeddings = embedder.generate_embeddings(potential_scenes)
-        classifications = classifier.predict(embeddings)
+        embeddings = torch.tensor(embeddings)
+        classifications = self.classifier(embeddings) > 0.0
 
-        #TODO - make sure that the classifications are in a meaningful format
+        scenes = [minima_indices[i] for i in range(len(classifications)) if classifications[i]]
+
+        return scenes
+     
+
+    def load_model(self, classifier_path):
+        self.classifier_path = classifier_path
+        if classifier_path:
+            import torch #only import torch if its needed TODO - add this to requirements.txt? 
+            checkpoint = torch.load(classifier_path)
+            model_class = checkpoint['model_architecture']
+            model = model_class()
+            model.load_state_dict(checkpoint['model_state_dict'])
+            model.eval()  # Set the model to evaluation mode
+
+            embedder_name = checkpoint.get('embedder_name', None)  # Use .get to avoid KeyError
+            if embedder_name:
+                print(f"Classifier from {classifier_path} trained on embedder {embedder_name} now loaded")
+            else:
+                print(f"Classifier from {classifier_path} now loaded. Warning: classifier embedder not specified.")
+
+            self.classifier = model
         
-        return classifications
+        else:
+            self.classifier = None
+            print(f'No classifier loaded in SceneIdentifier ')
                 
         
