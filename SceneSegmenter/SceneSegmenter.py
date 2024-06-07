@@ -22,8 +22,8 @@ class SceneSegmenter():
 
 
     #Input: filename for a txt file
-    def run(self, filename, sigma=3, plot=False, ground_truth=None, split_method="sentences", 
-            split_len=50, smooth="gaussian1d", diff="2norm", model_name='all-MiniLM-L6-v2',
+    def run(self, filename, sigma=3, plot=False, print_accuracies=False, ground_truth=None, split_method="sentences", 
+            split_len=50, smooth="gaussian1d", diff="2norm", model_name='all-MiniLM-L6-v2', target="minima",
             classifier_path=None):
         
         #model_name is checked inside the embedder 
@@ -42,6 +42,8 @@ class SceneSegmenter():
             raise ValueError(f"{smooth} is invalid smoothing method. Valid values are ['gaussian1d', None]")
         if classifier_path not in [None] and os.path.isfile('classifier_path'):
             raise ValueError(f"{classifier_path} not found. Use [None] or a valid classifier path.")
+        if target not in ["minima", "min", "maxima", "max", "both", "random"]:
+            raise ValueError(f"{target} is invalid target method. Must be 'min', 'max', 'both', or 'random'")
 
         #Ground truth can be drawn from a CSV or input as an array corresponding to sentence number for scenes
         if ".csv" in filename:
@@ -53,7 +55,7 @@ class SceneSegmenter():
         embeddings = self.embedder.generate_embeddings(split_sent)
 
         #Initial identification of potential scenes
-        deltaY, deltaY_smoothed, minima_indices = self.scene_identifier.identify(embeddings, sigma, smooth, diff)
+        deltaY, deltaY_smoothed, minima_indices = self.scene_identifier.identify(embeddings, sigma, smooth, diff, target)
 
         if classifier_path:
             if self.scene_identifier.classifier_path != classifier_path:
@@ -64,19 +66,35 @@ class SceneSegmenter():
             scenes = self.scene_identifier.apply_classifier(minima_indices, split_sent, self.embedder, 
                                                    alignment="center", k = 4)
         else:
+            #If no classifier, just use the minima indicies 
             scenes = minima_indices.tolist()
 
 
-
+        accuracies = {} #used for returning collected accuracy measures
         if ground_truth is not None:
             accuracy = self.calc_accuracy(scenes, ground_truth, num_tokens)
             alt_accuracy = self.calc_accuracy_alt(scenes, ground_truth)
-            print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
+            #print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
+            accuracies["accuracy"] = accuracy
+            accuracies["alt accuracy"] = alt_accuracy
+            for k in [0,1,2,4]:
+                k_accuracy = self.count_scenes_within_k(ground_truth, scenes, k) / len(scenes) * 100
+                accuracies[f"{k} GT accuracy"] = k_accuracy
+                #print(f'{k_accuracy * 100}% of identified scenes within {k} of GT scenes')
+            for k in [0,1,2,4]:
+                k_accuracy = self.count_scenes_within_k(scenes, ground_truth, k) / len(ground_truth) * 100
+                accuracies[f"{k} scenes found"] = k_accuracy
+                #print(f'{k_accuracy * 100}% of GT scenes within {k} of identified scenes')
+            
+            if print_accuracies:
+                for key in accuracies.keys():
+                    print(f'{key}: {accuracies[key]}')
+                print("")
 
         if plot:
             self.plot_scenes(deltaY_smoothed, scenes, sigma, filename, diff, ground_truth, split_len=split_len, split_method=split_method)
 
-        return deltaY_smoothed, scenes
+        return deltaY_smoothed, scenes, accuracies
 
 
     def plot_scenes(self, deltaY_smoothed, system_output, sigma, filename, diff="none" ,ground_truth=None, split_len=None, split_method="sentences"):
@@ -141,3 +159,15 @@ class SceneSegmenter():
         len_ratio = abs(len(system_output) - len(ground_truth)) / ((len(system_output) + len(ground_truth))/2)
 
         return sum(distances)/len(distances) * len_ratio
+    
+    def count_scenes_within_k(self, partition_1, partition_2, k):
+        count = 0
+
+        # Iterate over each scene in partition_2
+        for scene_2 in partition_2:
+            # Check if any scene in partition_1 is within distance k of scene_2
+            within_k = any(abs(scene_2 - scene_1) <= k for scene_1 in partition_1)
+            if within_k:
+                count += 1
+
+        return count

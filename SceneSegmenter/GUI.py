@@ -16,6 +16,11 @@ class SE_GUI():
         plot_checkbutton = ttk.Checkbutton(root, text="Plot", variable=self.plot_var, onvalue=True, offvalue=False)
         plot_checkbutton.grid(row=0, column=1)
 
+        # Create a switch for the plot option
+        self.print_var = tk.BooleanVar(value=False)  # Default value set to True
+        plot_checkbutton = ttk.Checkbutton(root, text="Print Accuracies", variable=self.print_var, onvalue=True, offvalue=False)
+        plot_checkbutton.grid(row=0, column=0)
+
         # Create input boxes with labels and default values
         filename_label = ttk.Label(root, text="Filename:")
         filename_label.grid(row=1, column=0)
@@ -61,15 +66,22 @@ class SE_GUI():
         self.sigma_entry.insert(0, 3)  # Default value
 
         # Create input boxes with labels and default values
+        target_indices_label = ttk.Label(root, text="Target Indices:")
+        target_indices_label.grid(row=8, column=0)
+        self.target_indices_entry = ttk.Entry(root)
+        self.target_indices_entry.grid(row=8, column=1)
+        self.target_indices_entry.insert(0, 'minima') 
+
+        # Create input boxes with labels and default values
         classifier_path_label = ttk.Label(root, text="Classifier Path:")
-        classifier_path_label.grid(row=8, column=0)
+        classifier_path_label.grid(row=9, column=0)
         self.classifier_path_entry = ttk.Entry(root)
-        self.classifier_path_entry.grid(row=8, column=1)
+        self.classifier_path_entry.grid(row=9, column=1)
         self.classifier_path_entry.insert(0, './Classifiers/classifier_3_layer.pth') 
 
         # Create a Run button
         run_button = ttk.Button(root, text="Run", command=self.run_action)
-        run_button.grid(row=9, column=1)
+        run_button.grid(row=10, column=1)
 
         # Create an Options button
         options_button = ttk.Button(root, text="Options", command=self.print_options_action)
@@ -82,6 +94,7 @@ class SE_GUI():
     def run_action(self):
         # Retrieving data from the GUI elements
         plot_value = self.plot_var.get()
+        print_value = self.print_var.get()
         filename_value = self.filename_entry.get()
         model_name_value = self.model_entry.get()
         split_method_value = self.split_method_entry.get()
@@ -89,6 +102,7 @@ class SE_GUI():
         smooth_value = self.smooth_entry.get()
         difference_measure_value = self.difference_measure_entry.get()
         sigma_value = self.sigma_entry.get()
+        target_indices = self.target_indices_entry.get()
         classifier_path = self.classifier_path_entry.get()
         
         #get inputs into right types
@@ -106,14 +120,16 @@ class SE_GUI():
         
         try:
             self.function(filename=filename_value, 
-                  split_method=split_method_value,
-                  split_len = split_length_value,
-                  smooth=smooth_value,
-                  diff=difference_measure_value,
-                  plot=plot_value,
-                  sigma=sigma_value,
-                  model_name=model_name_value,
-                  classifier_path = classifier_path)
+                split_method=split_method_value,
+                split_len = split_length_value,
+                smooth=smooth_value,
+                diff=difference_measure_value,
+                plot=plot_value,
+                print_accuracies = print_value,
+                sigma=sigma_value,
+                model_name=model_name_value,
+                target=target_indices,
+                classifier_path = classifier_path)
         except (TypeError, ValueError) as e:
             print(f"An error occurred: {e}")
         
@@ -124,7 +140,8 @@ class SE_GUI():
         {"filename" : [".txt (raw text)", ".csv (ground truth)"],
         "split_method (only used with txt files)": ["sentences", "tokens"],
         "smooth": ["gaussian1d", None],
-        "diff": ["2norm"]}
+        "diff": ["2norm"],
+        "target": ["min", "max", "both", "random"]}
 
         print("Options are as follows: ")
         for key in options.keys():

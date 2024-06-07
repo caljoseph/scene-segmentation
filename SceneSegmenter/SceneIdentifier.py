@@ -8,7 +8,7 @@ class SceneIdentifier():
     def __init__(self, classifier_path=None):
         self.load_model(classifier_path)
 
-    def identify(self, embeddings, sigma, smooth, diff):
+    def identify(self, embeddings, sigma, smooth, diff, target="minima"):
 
         deltaY = [] #differences between embeddings
 
@@ -36,14 +36,21 @@ class SceneIdentifier():
             deltaY_smoothed = np.array(deltaY)
 
         minima_indices = argrelextrema(deltaY_smoothed, np.less)[0]
+        maxima_indices = argrelextrema(deltaY_smoothed, np.greater)[0]
 
-        return deltaY, deltaY_smoothed, minima_indices
+        if target == "minima":
+            target_indices = minima_indices
+        elif target == "maxima":
+            target_indices = maxima_indices
+        elif target == "both":
+            target_indices = np.concatenate((minima_indices, maxima_indices))
+        elif target == "random":
+            target_indices = np.random.choice(np.arange(0, len(embeddings) + 1), len(embeddings)//15, replace=False)
+
+        return deltaY, deltaY_smoothed, target_indices
      
     def apply_classifier(self, minima_indices, sentences, embedder, alignment="center", k=1):
         import torch
-        # TODO - Add warning if the embedder is different from what the classifier used
-        # if embedder != classifier.embedder:
-        #     print("Warning: The embedder used is different from the one the classifier was trained with.")
 
         potential_scenes = []
         
