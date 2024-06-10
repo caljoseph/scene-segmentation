@@ -83,8 +83,12 @@ class SceneIdentifier():
     def load_model(self, classifier_path):
         self.classifier_path = classifier_path
         if classifier_path:
-            import torch #only import torch if its needed TODO - add this to requirements.txt? 
-            checkpoint = torch.load(classifier_path)
+            import torch #only import torch if its needed TODO - add this to requirements.txt?
+
+            device = torch.device('cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu')
+            print(f"Using device: {device}")
+
+            checkpoint = torch.load(classifier_path, map_location=device)
             model_class = checkpoint['model_architecture']
             model = model_class()
             model.load_state_dict(checkpoint['model_state_dict'])
