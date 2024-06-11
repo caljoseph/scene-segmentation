@@ -71,7 +71,7 @@ class SceneSegmenter():
 
 
         accuracies = {} #used for returning collected accuracy measures
-        if ground_truth is not None:
+        if ground_truth is not None and len(scenes) > 0:
             accuracy = self.calc_accuracy(scenes, ground_truth, num_tokens)
             alt_accuracy = self.calc_accuracy_alt(scenes, ground_truth)
             #print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
