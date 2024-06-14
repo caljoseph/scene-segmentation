@@ -12,11 +12,13 @@ from SceneIdentifier import SceneIdentifier
 #TODO - provide option for just saving plots, instead of displaying them first
 
 class SceneSegmenter():
-    def __init__(self, model_name='all-MiniLM-L6-v2', classifier_path='./Classifiers/classifier_3_layer.pth'):
+    def __init__(self, model_name='all-MiniLM-L6-v2', 
+                 classifier_path='./Classifiers/classifier_3_layer.pth',
+                 llm_name="gpt-4o-2024-05-13"):
 
         self.input_reader = InputReader()
         self.embedder = Embedder(model_name=model_name)
-        self.scene_identifier = SceneIdentifier(classifier_path=classifier_path)
+        self.scene_identifier = SceneIdentifier(classifier_path=classifier_path, llm_name=llm_name)
 
         
 
@@ -24,7 +26,7 @@ class SceneSegmenter():
     #Input: filename for a txt file
     def run(self, filename, sigma=3, plot=False, print_accuracies=False, ground_truth=None, split_method="sentences", 
             split_len=50, smooth="gaussian1d", diff="2norm", model_name='all-MiniLM-L6-v2', target="minima",
-            classifier_path=None):
+            classifier_path=None, llm_name=None):
         
         #model_name is checked inside the embedder 
         if self.embedder.model_name != model_name:
@@ -42,33 +44,23 @@ class SceneSegmenter():
             raise ValueError(f"{smooth} is invalid smoothing method. Valid values are ['gaussian1d', None]")
         if classifier_path not in [None] and os.path.isfile('classifier_path'):
             raise ValueError(f"{classifier_path} not found. Use [None] or a valid classifier path.")
-        if target not in ["minima", "min", "maxima", "max", "both", "random"]:
-            raise ValueError(f"{target} is invalid target method. Must be 'min', 'max', 'both', or 'random'")
+        if target not in ["minima", "min", "maxima", "max", "both", "random"] and not target.isdigit():
+            raise ValueError(f"{target} is invalid target method. Must be 'min', 'max', 'both', 'random' or an integer")
 
         #Ground truth can be drawn from a CSV or input as an array corresponding to sentence number for scenes
         if ".csv" in filename:
-            split_sent, ground_truth, num_tokens = self.input_reader.read(filename, split_method, split_len)
+            sentences, ground_truth, num_tokens = self.input_reader.read(filename, split_method, split_len)
         else:
-            split_sent, _, num_tokens = self.input_reader.read(filename, split_method, split_len)
+            sentences, _, num_tokens = self.input_reader.read(filename, split_method, split_len)
 
         #Pass sentences through sentence embedders
-        embeddings = self.embedder.generate_embeddings(split_sent)
+        embeddings = self.embedder.generate_embeddings(sentences)
 
         #Initial identification of potential scenes
-        deltaY, deltaY_smoothed, minima_indices = self.scene_identifier.identify(embeddings, sigma, smooth, diff, target)
-
-        if classifier_path:
-            if self.scene_identifier.classifier_path != classifier_path:
-                #Reload if new classifier
-                self.scene_identifier.load_model(classifier_path)
-            
-            #Apply classifier
-            scenes = self.scene_identifier.apply_classifier(minima_indices, split_sent, self.embedder, 
-                                                   alignment="center", k = 4)
-        else:
-            #If no classifier, just use the minima indicies 
-            scenes = minima_indices.tolist()
-
+        deltaY, deltaY_smoothed, scenes = self.scene_identifier.identify(embeddings, sigma, smooth, diff, target=target, 
+                                                                                 sentences=sentences, embedder=self.embedder,
+                                                                                 classifier_path=classifier_path, llm_name=llm_name,
+                                                                                 alignment='center', k=4)
 
         accuracies = {} #used for returning collected accuracy measures
         if ground_truth is not None and len(scenes) > 0:
