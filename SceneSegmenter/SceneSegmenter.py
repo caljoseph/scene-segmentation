@@ -24,7 +24,7 @@ class SceneSegmenter():
 
 
     #Input: filename for a txt file
-    def run(self, filename, sigma=3, plot=False, print_accuracies=False, ground_truth=None, split_method="sentences", 
+    def run(self, filename, sigma=3, plot=False, print_accuracies=False, ground_truth_sentences=None, split_method="sentences",
             split_len=50, smooth="gaussian1d", diff="2norm", model_name='all-MiniLM-L6-v2', target="minima",
             classifier_path=None, llm_name=None):
         
@@ -49,7 +49,7 @@ class SceneSegmenter():
 
         #Ground truth can be drawn from a CSV or input as an array corresponding to sentence number for scenes
         if ".csv" in filename:
-            sentences, ground_truth, num_tokens = self.input_reader.read(filename, split_method, split_len)
+            sentences, ground_truth_sentences, num_tokens = self.input_reader.read(filename, split_method, split_len)
         else:
             sentences, _, num_tokens = self.input_reader.read(filename, split_method, split_len)
 
@@ -62,19 +62,31 @@ class SceneSegmenter():
                                                                                  classifier_path=classifier_path, llm_name=llm_name,
                                                                                  alignment='center', k=4)
 
+        #Construct indentified and ground truth position arrays
+        identified_scenes_tokens = self.convert_to_tokens(scenes, sentences)
+        if ground_truth_sentences is not None:
+            ground_truth_tokens = self.convert_to_tokens(ground_truth_sentences, sentences)
+        else:
+            ground_truth_tokens = None
+
+        # Ensure both arrays start with 0 and remove the last element
+        identified_scenes_tokens = self.adjust_token_array(identified_scenes_tokens)
+        ground_truth_tokens = self.adjust_token_array(
+            ground_truth_tokens) if ground_truth_tokens is not None else None
+
         accuracies = {} #used for returning collected accuracy measures
-        if ground_truth is not None and len(scenes) > 0:
-            accuracy = self.calc_accuracy(scenes, ground_truth, num_tokens)
-            alt_accuracy = self.calc_accuracy_alt(scenes, ground_truth)
+        if ground_truth_sentences is not None and len(scenes) > 0:
+            accuracy = self.calc_accuracy(scenes, ground_truth_sentences, num_tokens)
+            alt_accuracy = self.calc_accuracy_alt(scenes, ground_truth_sentences)
             #print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
             accuracies["accuracy"] = accuracy
             accuracies["alt accuracy"] = alt_accuracy
             for k in [0,1,2,4]:
-                k_accuracy = self.count_scenes_within_k(ground_truth, scenes, k) / len(scenes) * 100
+                k_accuracy = self.count_scenes_within_k(ground_truth_sentences, scenes, k) / len(scenes) * 100
                 accuracies[f"{k} GT accuracy"] = k_accuracy
                 #print(f'{k_accuracy * 100}% of identified scenes within {k} of GT scenes')
             for k in [0,1,2,4]:
-                k_accuracy = self.count_scenes_within_k(scenes, ground_truth, k) / len(ground_truth) * 100
+                k_accuracy = self.count_scenes_within_k(scenes, ground_truth_sentences, k) / len(ground_truth_sentences) * 100
                 accuracies[f"{k} scenes found"] = k_accuracy
                 #print(f'{k_accuracy * 100}% of GT scenes within {k} of identified scenes')
             
@@ -84,9 +96,26 @@ class SceneSegmenter():
                 print("")
 
         if plot:
-            self.plot_scenes(deltaY_smoothed, scenes, sigma, filename, diff, ground_truth, split_len=split_len, split_method=split_method)
+            self.plot_scenes(deltaY_smoothed, scenes, sigma, filename, diff, ground_truth_sentences, split_len=split_len, split_method=split_method)
 
-        return deltaY_smoothed, scenes, accuracies
+        return deltaY_smoothed, identified_scenes_tokens, ground_truth_tokens, scenes, accuracies
+
+    def convert_to_tokens(self, scene_indices, text_units):
+        token_counts = []
+        current_count = 0
+        for i, unit in enumerate(text_units):
+            if i in scene_indices:
+                token_counts.append(current_count)
+            current_count += len(unit.split())
+        token_counts.append(current_count)  # Add total token count at the end
+        return token_counts
+
+    def adjust_token_array(self, token_array):
+        if token_array is None:
+            return None
+        if token_array[0] != 0:
+            token_array = [0] + token_array
+        return token_array[:-1]  # Remove the last element (total token count)
 
 
     def plot_scenes(self, deltaY_smoothed, system_output, sigma, filename, diff="none" ,ground_truth=None, split_len=None, split_method="sentences"):

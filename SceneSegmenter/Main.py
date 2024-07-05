@@ -2,21 +2,26 @@ from SceneSegmenter import SceneSegmenter
 from GUI import SE_GUI
 
 
-'''GUI Approach, allows for input into the GUI for running the system'''
+# '''GUI Approach, allows for input into the GUI for running the system'''
+# if __name__ == "__main__":
+#
+#     segmenter = SceneSegmenter()
+#
+#     gui = SE_GUI(segmenter.run)
+
+
+'''Code Based Approach, allows for inputs to be manually input into an object'''
 if __name__ == "__main__":
 
     segmenter = SceneSegmenter()
 
-    gui = SE_GUI(segmenter.run)
+    _, identified_scenes, ground_truth_scenes, _, _ = segmenter.run(
+        filename="./Data/Falling.csv",
+        split_method="sentences",
+        smooth="gaussian1d",
+        plot=True
+    )
 
-
-# '''Code Based Approach, allows for inputs to be manually input into an object'''
-# if __name__ == "__main__":
-
-#     segmenter = SceneSegmenter()
-
-#     segmenter.run(filename="./Data/Falling.csv", 
-#                   split_method="sentences",
-#                   smooth="gaussian1d",
-#                   plot=True)
+    print("Identified scenes (in tokens):", identified_scenes)
+    print("Ground truth scenes (in tokens):", ground_truth_scenes)
     
