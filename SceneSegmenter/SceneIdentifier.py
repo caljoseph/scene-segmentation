@@ -9,6 +9,8 @@ class SceneIdentifier():
     def __init__(self, classifier_path=None, llm_name=None):
         self.load_model(classifier_path)
         self.load_bot(llm_name)
+        self.all_potential_scenes = []
+        self.classifier_selected_scenes = []
         
 
     def identify(self, embeddings, sigma, smooth, diff, sentences,
@@ -55,7 +57,7 @@ class SceneIdentifier():
             target = int(target)
             target_indices = np.arange(0, len(embeddings), target)
 
-
+        self.all_potential_scenes = target_indices.tolist()
         # APPLY CLASSIFIER
         if classifier_path:
             if self.classifier_path != classifier_path:
@@ -64,10 +66,12 @@ class SceneIdentifier():
             
             #Apply classifier
             target_indices = self.apply_classifier(target_indices, sentences, embedder, 
-                                                   alignment=alignment, k = k)
+                                                   alignment=alignment, k=k)
         else:
             #If no classifier, just use the minima indicies 
-            target_indices = target_indices.tolist()   
+            target_indices = target_indices.tolist()
+
+        self.classifier_selected_scenes = target_indices
 
         # APPLY LLM
         if llm_name:
@@ -141,8 +145,8 @@ class SceneIdentifier():
               generated tokens: {self.bot.response_tokens_total}')
 
         return target_indices
-            
-     
+
+
 
     def load_model(self, classifier_path):
         self.classifier_path = classifier_path
@@ -165,7 +169,7 @@ class SceneIdentifier():
                 print(f"Classifier from {classifier_path} now loaded. Warning: classifier embedder not specified.")
 
             self.classifier = model
-        
+
         else:
             self.classifier = None
             print(f'No classifier loaded in SceneIdentifier ')

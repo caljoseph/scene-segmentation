@@ -16,10 +16,15 @@ if __name__ == "__main__":
     segmenter = SceneSegmenter()
 
     _, identified_scenes, ground_truth_scenes, _, _ = segmenter.run(
-        filename="./Data/Falling.csv",
+        filename="./Annotated_CSVs/The_Most_Dangerous_Game.csv",
         split_method="sentences",
         smooth="gaussian1d",
-        plot=True
+        sigma = 3,
+        plot=True,
+        print_accuracies=True,
+        classifier_path="./Classifiers/classifier_3_layer.pth",
+        llm_name="gpt-4o-2024-05-13",
+        k=4
     )
 
     print("Identified scenes (in tokens):", identified_scenes)

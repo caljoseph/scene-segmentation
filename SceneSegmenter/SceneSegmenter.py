@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import re
 import os
-
+from sklearn.metrics import f1_score
 
 from InputReader import InputReader
 from Embedder import Embedder
@@ -26,7 +26,7 @@ class SceneSegmenter():
     #Input: filename for a txt file
     def run(self, filename, sigma=3, plot=False, print_accuracies=False, ground_truth_sentences=None, split_method="sentences",
             split_len=50, smooth="gaussian1d", diff="2norm", model_name='all-MiniLM-L6-v2', target="minima",
-            classifier_path=None, llm_name=None):
+            classifier_path=None, llm_name=None, k=4):
         
         #model_name is checked inside the embedder 
         if self.embedder.model_name != model_name:
@@ -60,7 +60,7 @@ class SceneSegmenter():
         deltaY, deltaY_smoothed, scenes = self.scene_identifier.identify(embeddings, sigma, smooth, diff, target=target, 
                                                                                  sentences=sentences, embedder=self.embedder,
                                                                                  classifier_path=classifier_path, llm_name=llm_name,
-                                                                                 alignment='center', k=4)
+                                                                                 alignment='center', k=k)
 
         #Construct indentified and ground truth position arrays
         identified_scenes_tokens = self.convert_to_tokens(scenes, sentences)
@@ -74,22 +74,31 @@ class SceneSegmenter():
         ground_truth_tokens = self.adjust_token_array(
             ground_truth_tokens) if ground_truth_tokens is not None else None
 
-        accuracies = {} #used for returning collected accuracy measures
+        accuracies = {}  # used for returning collected accuracy measures
         if ground_truth_sentences is not None and len(scenes) > 0:
             accuracy = self.calc_accuracy(scenes, ground_truth_sentences, num_tokens)
             alt_accuracy = self.calc_accuracy_alt(scenes, ground_truth_sentences)
-            #print(f'Accuracy: {accuracy}, Alt: {alt_accuracy}')
-            accuracies["accuracy"] = accuracy
-            accuracies["alt accuracy"] = alt_accuracy
-            for k in [0,1,2,4]:
-                k_accuracy = self.count_scenes_within_k(ground_truth_sentences, scenes, k) / len(scenes) * 100
-                accuracies[f"{k} GT accuracy"] = k_accuracy
-                #print(f'{k_accuracy * 100}% of identified scenes within {k} of GT scenes')
-            for k in [0,1,2,4]:
-                k_accuracy = self.count_scenes_within_k(scenes, ground_truth_sentences, k) / len(ground_truth_sentences) * 100
-                accuracies[f"{k} scenes found"] = k_accuracy
-                #print(f'{k_accuracy * 100}% of GT scenes within {k} of identified scenes')
-            
+            f1 = self.calc_f1_score(self.scene_identifier.all_potential_scenes,
+                                    self.scene_identifier.classifier_selected_scenes,
+                                    ground_truth_sentences,
+                                    k)
+
+            print("All potential scenes:", self.scene_identifier.all_potential_scenes)
+            print("Classifier selected scenes:", self.scene_identifier.classifier_selected_scenes)
+            print("Ground truth scenes:", ground_truth_sentences)
+
+            accuracies["Pointwise dissimilarity"] = accuracy
+            accuracies["Alternative accuracy"] = alt_accuracy
+            accuracies["F1 score for classifier"] = f1
+            # for k in [0,1,2,4]:
+            #     k_accuracy = self.count_scenes_within_k(ground_truth_sentences, scenes, k) / len(scenes) * 100
+            #     accuracies[f"{k} ground truth accuracy"] = k_accuracy
+            #     #print(f'{k_accuracy * 100}% of identified scenes within {k} of GT scenes')
+            # for k in [0,1,2,4]:
+            #     k_accuracy = self.count_scenes_within_k(scenes, ground_truth_sentences, k) / len(ground_truth_sentences) * 100
+            #     accuracies[f"{k} scenes found"] = k_accuracy
+            #     #print(f'{k_accuracy * 100}% of GT scenes within {k} of identified scenes')
+            #
             if print_accuracies:
                 for key in accuracies.keys():
                     print(f'{key}: {accuracies[key]}')
@@ -99,6 +108,17 @@ class SceneSegmenter():
             self.plot_scenes(deltaY_smoothed, scenes, sigma, filename, diff, ground_truth_sentences, split_len=split_len, split_method=split_method)
 
         return deltaY_smoothed, identified_scenes_tokens, ground_truth_tokens, scenes, accuracies
+
+    def calc_f1_score(self, all_potential_scenes, classifier_selected_scenes, ground_truth_scenes, tolerance):
+        # Create binary labels for each potential scene
+        y_true = [1 if self.is_close_to_ground_truth(scene, ground_truth_scenes, tolerance) else 0 for scene in
+                  all_potential_scenes]
+        y_pred = [1 if scene in classifier_selected_scenes else 0 for scene in all_potential_scenes]
+
+        return f1_score(y_true, y_pred)
+
+    def is_close_to_ground_truth(self, scene, ground_truth_scenes, tolerance):
+        return any(abs(scene - gt) <= tolerance for gt in ground_truth_scenes)
 
     def convert_to_tokens(self, scene_indices, text_units):
         token_counts = []
