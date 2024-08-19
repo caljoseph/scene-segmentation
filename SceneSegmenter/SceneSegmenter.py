@@ -76,7 +76,8 @@ class SceneSegmenter():
 
         accuracies = {}  # used for returning collected accuracy measures
         if ground_truth_sentences is not None and len(scenes) > 0:
-            accuracy = self.calc_accuracy(scenes, ground_truth_sentences, num_tokens)
+            num_sentences = len(sentences)
+            accuracy = self.calc_accuracy(scenes, ground_truth_sentences, num_sentences)
             alt_accuracy = self.calc_accuracy_alt(scenes, ground_truth_sentences)
             f1 = self.calc_f1_score(self.scene_identifier.all_potential_scenes,
                                     self.scene_identifier.classifier_selected_scenes,
