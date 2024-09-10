@@ -14,7 +14,7 @@ from SceneIdentifier import SceneIdentifier
 class SceneSegmenter():
     def __init__(self, model_name='all-MiniLM-L6-v2', 
                  classifier_path='./Classifiers/classifier_3_layer.pth',
-                 llm_name="gpt-4o-2024-05-13"):
+                 llm_name=None):
 
         self.input_reader = InputReader()
         self.embedder = Embedder(model_name=model_name)

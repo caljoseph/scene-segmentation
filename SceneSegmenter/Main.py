@@ -16,14 +16,14 @@ if __name__ == "__main__":
     segmenter = SceneSegmenter()
 
     _, identified_scenes, ground_truth_scenes, _, _ = segmenter.run(
-        filename="./Annotated_CSVs/The_Most_Dangerous_Game.csv",
+        filename="./Annotated_CSVs/The_Night_Wire.csv",
         split_method="sentences",
         smooth="gaussian1d",
-        sigma = 3,
+        sigma=2.5,
         plot=True,
         print_accuracies=True,
         classifier_path="./Classifiers/classifier_3_layer.pth",
-        llm_name="gpt-4o-2024-05-13",
+        llm_name=None,
         k=4
     )
 
