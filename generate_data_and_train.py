@@ -670,18 +670,12 @@ def main():
         # Check if 4-bit quantization is available (requires CUDA)
         can_use_4bit = USE_4BIT and torch.cuda.is_available()
         if USE_4BIT and not can_use_4bit:
-            print("⚠️  4-bit quantization requires CUDA, disabling (will use fp32 on MPS/CPU)")
-
-        # Device diagnostics
-        print(f"\n🔍 Device Diagnostics:")
-        print(f"   CUDA available: {torch.cuda.is_available()}")
-        print(f"   MPS available: {torch.backends.mps.is_available()}")
-        print(f"   MPS built: {torch.backends.mps.is_built()}")
-        print(f"   Selected device: {device}")
+            print("⚠️  4-bit quantization requires CUDA, falling back to fp16/fp32")
 
         print(f"\n✓ Model: {LLM_MODEL_NAME}")
+        print(f"✓ Device: {device}")
         print(f"✓ Max length: {LLM_MAX_LENGTH} tokens")
-        print(f"✓ LoRA enabled: {USE_LORA} (r={LORA_R}, alpha={LORA_ALPHA})")
+        print(f"✓ LoRA: {USE_LORA} (r={LORA_R}, alpha={LORA_ALPHA})")
         print(f"✓ 4-bit quantization: {can_use_4bit}")
 
         # Load tokenizer and configure padding
@@ -728,8 +722,8 @@ def main():
 
         print(f"\n✓ Created datasets: {len(train_dataset)} train, {len(val_dataset) if val_dataset else 0} val, {len(test_dataset)} test")
 
-        # Load model with quantization (only on CUDA)
-        print(f"\n✓ Loading model: {LLM_MODEL_NAME}...")
+        # Load model
+        print(f"\n✓ Loading model...")
         if can_use_4bit:
             bnb_config = BitsAndBytesConfig(
                 load_in_4bit=True,
@@ -746,18 +740,12 @@ def main():
             if USE_LORA:
                 model = prepare_model_for_kbit_training(model)
         else:
-            # Load in full precision (fp32 or fp16)
             model = AutoModelForSequenceClassification.from_pretrained(
                 LLM_MODEL_NAME,
                 num_labels=2,
                 torch_dtype=torch.float16 if device.type == 'mps' else torch.float32,
                 pad_token_id=tokenizer.pad_token_id
             ).to(device)
-
-        # Verify model device placement
-        print(f"\n🔍 Model Device Check:")
-        print(f"   Model device: {next(model.parameters()).device}")
-        print(f"   Model dtype: {next(model.parameters()).dtype}")
 
         # Apply LoRA
         if USE_LORA:
@@ -766,20 +754,18 @@ def main():
                 r=LORA_R,
                 lora_alpha=LORA_ALPHA,
                 lora_dropout=LORA_DROPOUT,
-                target_modules=["q_proj", "v_proj", "k_proj", "o_proj"]  # Apply to all attention projections
+                target_modules=["q_proj", "v_proj", "k_proj", "o_proj"]
             )
             model = get_peft_model(model, lora_config)
             model.print_trainable_parameters()
-            print(f"   Model device after LoRA: {next(model.parameters()).device}")
 
         # Training arguments
-        # Note: MPS support in Trainer requires setting these flags carefully
         training_args = TrainingArguments(
             output_dir=CLASSIFIER_OUTPUT,
-            num_train_epochs=5,  # LLMs converge faster
-            per_device_train_batch_size=2,  # Small batch for 3B model on MPS
-            per_device_eval_batch_size=4,
-            gradient_accumulation_steps=2,  # Effective batch size = 2*2 = 4
+            num_train_epochs=5,
+            per_device_train_batch_size=8,
+            per_device_eval_batch_size=8,
+            gradient_accumulation_steps=1,
             learning_rate=LEARNING_RATE,
             weight_decay=WEIGHT_DECAY,
             warmup_steps=100,
@@ -790,13 +776,10 @@ def main():
             load_best_model_at_end=True if val_dataset else False,
             metric_for_best_model="eval_accuracy" if val_dataset else None,
             save_total_limit=3,
-            report_to="none",  # Disable wandb/tensorboard
-            fp16=False,  # MPS doesn't support fp16 training well
-            bf16=False,  # MPS doesn't support bf16
+            report_to="none",
+            fp16=False,
+            bf16=False,
             use_cpu=False,
-            # Explicitly set device to avoid auto-detection issues
-            no_cuda=True,  # Disable CUDA detection (we're on MPS)
-            dataloader_pin_memory=False,  # MPS doesn't support pinned memory
         )
 
         # Define compute_metrics for evaluation

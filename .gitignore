@@ -11,6 +11,8 @@ api_key.py
 # Cache and generated data
 data/cache/
 data/generated/
+data/datasets/
+data/pipeline/
 
 # Models (comment out if you want to track them)
 data/models/
