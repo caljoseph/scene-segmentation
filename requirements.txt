@@ -1,9 +1,14 @@
-matplotlib==3.4.3
-nltk==3.8.1
-numpy==1.24.3
-pandas==1.5.3
-scikit_learn==1.2.2
-scipy==1.10.1
-sentence_transformers==2.2.2
-torch==2.0.1
-transformers==4.32.1
+matplotlib>=3.7.0
+nltk>=3.8.1
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+scipy>=1.10.0
+sentence-transformers>=2.5.0
+torch>=2.0.0
+transformers>=4.35.0
+
+# LLM Fine-tuning (for llm-finetune classifier type)
+peft>=0.7.0
+bitsandbytes>=0.43.1  # 0.43.1+ has MPS (Mac GPU) support for 4-bit quantization
+accelerate>=0.24.0

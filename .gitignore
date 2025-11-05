@@ -4,3 +4,50 @@ SceneSegmenter/APIkey.py
 **/.DS_Store
 .idea/
 SceneSegmenter/.DS_Store
+
+# API Keys
+api_key.py
+
+# Cache and generated data
+data/cache/
+data/generated/
+
+# Models (comment out if you want to track them)
+data/models/
+*.pth
+*.pt
+*.bin
+*.safetensors
+
+# HuggingFace cache and models
+.cache/
+*.gguf
+model_cache/
+
+# Plots
+plots/
+Plots/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
