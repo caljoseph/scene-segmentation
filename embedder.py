@@ -47,7 +47,13 @@ class Embedder():
                 print(f"  Generating {len(uncached_texts)}/{len(split_text)} embeddings (rest from cache)...")
 
             if self.model_type == "sentence-transformer":
-                new_embeddings = self.model.encode(uncached_texts)
+                # Use larger batch size and show progress for H100
+                new_embeddings = self.model.encode(
+                    uncached_texts,
+                    batch_size=512,  # Increased for H100
+                    show_progress_bar=True,
+                    convert_to_numpy=True
+                )
             else:
                 inputs = self.tokenizer(uncached_texts, padding=True, truncation=True, return_tensors="pt")
 
@@ -88,6 +94,16 @@ class Embedder():
             self.model_type = "sentence-transformer"
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+            # Llama models don't have a pad token by default - set it to eos_token
+            # This matches the training configuration
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+                self.tokenizer.pad_token_id = self.tokenizer.eos_token_id
+
+            # For decoder models, pad on the left (matches training)
+            self.tokenizer.padding_side = 'left'
+
             self.model = AutoModel.from_pretrained(model_name)
             self.model_type = "transformer"
 

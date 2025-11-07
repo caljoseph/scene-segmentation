@@ -27,9 +27,8 @@ from embedder import Embedder
 RANDOM_SPLIT = True
 
 DATASET_DIRS = [
-    "data/datasets/german_scene/train_full",
-    "data/datasets/german_scene/test_full",
     "data/datasets/story_lab",
+    "data/datasets/german_scene/train_full",
 ]
 
 # ============================================================
@@ -62,27 +61,28 @@ EMBEDDING_MODEL = "BAAI/bge-m3"  # For lstm/cnn/simple only
 EMBEDDING_DIM = 1024  # For lstm/cnn/simple only
 HIDDEN_DIM = 512  # For LSTM/CNN (ignored for simple/llm-finetune)
 DROPOUT = 0.3
+USE_EMBEDDING_CACHE = False  # Set to False to skip per-sentence cache (faster on slow filesystems)
 
 # LLM Fine-tuning (only used when CLASSIFIER_TYPE = "llm-finetune")
-LLM_MODEL_NAME = "meta-llama/Llama-3.2-3B"  # or "meta-llama/Llama-3.2-1B" for faster experiments
+LLM_MODEL_NAME = "meta-llama/Llama-3.2-3B"  # 3B model (proven: 88.68%)
 LLM_MAX_LENGTH = 512  # Max tokens for concatenated 7 sentences
 USE_LORA = True  # Use LoRA for parameter-efficient fine-tuning
 LORA_R = 16  # LoRA rank
 LORA_ALPHA = 32  # LoRA alpha
 LORA_DROPOUT = 0.1  # LoRA dropout
-USE_4BIT = True  # Use 4-bit quantization (QLoRA) - reduces memory
+USE_4BIT = True  # Use 4-bit quantization (QLoRA) - reduces memory for single GPU
 
 # Training
-BATCH_SIZE = 32
-LEARNING_RATE = 2e-4
-WEIGHT_DECAY = 1e-5
+BATCH_SIZE = 32  # Original 3B recipe batch size
+LEARNING_RATE = 2e-4  # Original 3B recipe
+WEIGHT_DECAY = 1e-5  # Original 3B recipe
 EPOCHS = 200
 EARLY_STOP_PATIENCE = 50
 
 # Splits (only used when RANDOM_SPLIT = True)
-TRAIN_SIZE = 0.7
-VAL_SIZE = 0.15
-TEST_SIZE = 0.15
+TRAIN_SIZE = 0.9
+VAL_SIZE = 0.1
+TEST_SIZE = 0.0  # No test set - testing done via downstream pipeline
 RANDOM_SEED = 42
 
 # Default empty lists for forced mode (don't change these here, change above)
@@ -718,9 +718,8 @@ def main():
 
         train_dataset = SceneDataset(train_texts, train_labels, tokenizer, LLM_MAX_LENGTH)
         val_dataset = SceneDataset(val_texts, val_labels, tokenizer, LLM_MAX_LENGTH) if len(val_texts) > 0 else None
-        test_dataset = SceneDataset(test_texts, test_labels, tokenizer, LLM_MAX_LENGTH)
 
-        print(f"\n✓ Created datasets: {len(train_dataset)} train, {len(val_dataset) if val_dataset else 0} val, {len(test_dataset)} test")
+        print(f"\n✓ Created datasets: {len(train_dataset)} train, {len(val_dataset) if val_dataset else 0} val")
 
         # Load model
         print(f"\n✓ Loading model...")
@@ -735,7 +734,8 @@ def main():
                 LLM_MODEL_NAME,
                 num_labels=2,
                 quantization_config=bnb_config,
-                device_map="auto"
+                device_map="auto",
+                pad_token_id=tokenizer.pad_token_id
             )
             if USE_LORA:
                 model = prepare_model_for_kbit_training(model)
@@ -743,9 +743,13 @@ def main():
             model = AutoModelForSequenceClassification.from_pretrained(
                 LLM_MODEL_NAME,
                 num_labels=2,
-                torch_dtype=torch.float16 if device.type == 'mps' else torch.float32,
+                torch_dtype=torch.bfloat16,  # Use bfloat16 for H100
+                device_map="auto",  # Automatically shard across GPUs for 70B
                 pad_token_id=tokenizer.pad_token_id
-            ).to(device)
+            )
+
+        # Ensure model config has the pad token set
+        model.config.pad_token_id = tokenizer.pad_token_id
 
         # Apply LoRA
         if USE_LORA:
@@ -759,26 +763,26 @@ def main():
             model = get_peft_model(model, lora_config)
             model.print_trainable_parameters()
 
-        # Training arguments
+        # Training arguments - 3B model recipe (proven: 88.68%)
         training_args = TrainingArguments(
             output_dir=CLASSIFIER_OUTPUT,
-            num_train_epochs=5,
-            per_device_train_batch_size=8,
-            per_device_eval_batch_size=8,
+            num_train_epochs=5,  # Original 3B recipe
+            per_device_train_batch_size=16,  # Adjusted for single H100 (original was 8)
+            per_device_eval_batch_size=16,
             gradient_accumulation_steps=1,
-            learning_rate=LEARNING_RATE,
-            weight_decay=WEIGHT_DECAY,
-            warmup_steps=100,
+            learning_rate=LEARNING_RATE,  # 2e-4 from config
+            weight_decay=WEIGHT_DECAY,  # 1e-5 from config
+            warmup_steps=100,  # Original 3B recipe
             logging_dir=f"{CLASSIFIER_OUTPUT}/logs",
             logging_steps=50,
-            eval_strategy="epoch" if val_dataset else "no",
+            eval_strategy="epoch" if val_dataset else "no",  # Eval at end of each epoch (simpler for 5 epochs)
             save_strategy="epoch",
-            load_best_model_at_end=True if val_dataset else False,
-            metric_for_best_model="eval_accuracy" if val_dataset else None,
-            save_total_limit=3,
+            load_best_model_at_end=True if val_dataset else False,  # Load best validation model at end
+            metric_for_best_model="eval_accuracy" if val_dataset else None,  # Save based on val accuracy
+            save_total_limit=3,  # Keep only 3 best checkpoints
             report_to="none",
             fp16=False,
-            bf16=False,
+            bf16=False,  # Match original 3B recipe
             use_cpu=False,
         )
 
@@ -806,19 +810,15 @@ def main():
         # Train
         trainer.train()
 
-        # Evaluate on test set
-        print("\n✓ Evaluating on test set...")
-        test_results = trainer.evaluate(test_dataset)
-        print(f"✓ Test accuracy: {test_results['eval_accuracy']*100:.2f}%")
-
-        # Save final model
-        print(f"\n✓ Saving model to: {CLASSIFIER_OUTPUT}")
+        # Save final best model (already loaded via load_best_model_at_end=True)
+        print(f"\n✓ Saving best model to: {CLASSIFIER_OUTPUT}")
         trainer.save_model(CLASSIFIER_OUTPUT)
         tokenizer.save_pretrained(CLASSIFIER_OUTPUT)
 
         print("=" * 60)
         print("✓ LLM fine-tuning complete!")
-        print(f"✓ Model saved to: {CLASSIFIER_OUTPUT}")
+        print(f"✓ Best model (based on validation accuracy) saved to: {CLASSIFIER_OUTPUT}")
+        print(f"✓ Test evaluation will be done separately via downstream pipeline")
         print("=" * 60)
 
         return  # Exit early for LLM path
@@ -832,7 +832,7 @@ def main():
     print("=" * 60)
 
     print(f"\n✓ Initializing embedder: {EMBEDDING_MODEL}")
-    embedder = Embedder(model_name=EMBEDDING_MODEL, cache_dir="data/cache")
+    embedder = Embedder(model_name=EMBEDDING_MODEL, cache_dir="data/cache", use_cache=USE_EMBEDDING_CACHE)
 
     print("\nTrain embeddings:")
     train_embeddings, train_labels = generate_or_load_embeddings(
@@ -913,6 +913,7 @@ def main():
 
     Path("classifiers").mkdir(exist_ok=True)
     Path("plots").mkdir(exist_ok=True)
+    Path(CLASSIFIER_OUTPUT).parent.mkdir(parents=True, exist_ok=True)
 
     max_accuracy = 0
     stopper_count = 0
@@ -943,20 +944,20 @@ def main():
               f"Val Acc: {val_accuracy*100:.2f}% | "
               f"Test Acc: {test_accuracy*100:.2f}%")
 
-        if test_accuracy > max_accuracy:
+        if val_accuracy > max_accuracy:
             stopper_count = 0
-            max_accuracy = test_accuracy
+            max_accuracy = val_accuracy
             torch.save({
                 'epoch': epoch,
                 'model_state_dict': classifier.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 'embedding_dim': EMBEDDING_DIM,
                 'embedder_name': EMBEDDING_MODEL,
-                'test_accuracy': max_accuracy,
+                'val_accuracy': max_accuracy,
                 'hidden_dim': HIDDEN_DIM,
                 'dropout': DROPOUT
             }, CLASSIFIER_OUTPUT)
-            print(f"  ✓ Saved new best model (test acc: {test_accuracy*100:.2f}%)")
+            print(f"  ✓ Saved new best model (val acc: {val_accuracy*100:.2f}%)")
         else:
             stopper_count += 1
 
