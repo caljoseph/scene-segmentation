@@ -24,8 +24,9 @@ class SceneSegmenter():
     #Input: filename for a txt file
     def run(self, filename, sigma=3, plot=False, print_accuracies=False, ground_truth_sentences=None,
             split_method="sentences",
-            split_len=50, smooth="gaussian1d", diff="2norm", target="minima",
-            classifier_path=None, tolerance=3):
+            split_len=50, smooth="gaussian1d", diff="2norm",
+            classifier_path=None, tolerance=3, mode="optima", window_size=7,
+            candidate_selector=None):
 
         #check inputs
         if ".csv" not in filename and ".txt" not in filename:
@@ -39,8 +40,8 @@ class SceneSegmenter():
             raise ValueError(f"{smooth} is invalid smoothing method. Valid values are ['gaussian1d', None]")
         if classifier_path not in [None] and os.path.isfile('classifier_path'):
             raise ValueError(f"{classifier_path} not found. Use [None] or a valid classifier path.")
-        if target not in ["minima", "min", "maxima", "max", "both", "random"] and not target.isdigit():
-            raise ValueError(f"{target} is invalid target method. Must be 'min', 'max', 'both', 'random' or an integer")
+        if mode not in ["optima", "sliding_window"]:
+            raise ValueError(f"{mode} is invalid mode. Valid values are ['optima', 'sliding_window']")
 
         #Ground truth can be drawn from a CSV or input as an array corresponding to sentence number for scenes
         if ".csv" in filename:
@@ -48,14 +49,17 @@ class SceneSegmenter():
         else:
             sentences, _, num_tokens = self.input_reader.read(filename, split_method, split_len)
 
-        #Pass sentences through sentence embedders
+        # Always generate embeddings for plotting (even if not used for classification)
         embeddings = self.embedder.generate_embeddings(sentences)
 
         #Initial identification of potential scenes
-        deltaY, deltaY_smoothed, scenes = self.scene_identifier.identify(embeddings, sigma, smooth, diff, target=target,
+        deltaY, deltaY_smoothed, scenes = self.scene_identifier.identify(embeddings, sigma, smooth, diff,
                                                                          sentences=sentences, embedder=self.embedder,
                                                                          classifier_path=classifier_path,
-                                                                         alignment='center', tolerance=tolerance)
+                                                                         alignment='center', tolerance=tolerance,
+                                                                         mode=mode, window_size=window_size,
+                                                                         ground_truth=ground_truth_sentences,
+                                                                         candidate_selector=candidate_selector)
 
         #Construct indentified and ground truth position arrays
         identified_scenes_tokens = self.convert_to_tokens(scenes, sentences)
@@ -108,10 +112,14 @@ class SceneSegmenter():
                 print("")
 
         if plot:
-            self.plot_scenes(deltaY_smoothed, scenes, sigma, filename, diff, ground_truth_sentences,
-                             split_len=split_len, split_method=split_method)
+            if len(deltaY_smoothed) > 0:
+                self.plot_scenes(deltaY_smoothed, scenes, sigma, filename, diff, ground_truth_sentences,
+                                 split_len=split_len, split_method=split_method)
+            else:
+                print("Note: Plotting skipped for sliding_window mode (no embedding deltaY to plot)")
 
-        return deltaY_smoothed, identified_scenes_tokens, ground_truth_tokens, scenes, accuracies
+        # Return vote_scores for sliding_window_voting mode (deltaY_smoothed is vote_scores in this mode)
+        return deltaY_smoothed, identified_scenes_tokens, ground_truth_tokens, scenes, accuracies, ground_truth_sentences
 
     def calc_relaxed_metrics(self, predicted_borders, gold_borders, num_sentences, tolerance=3):
         """
@@ -199,18 +207,20 @@ class SceneSegmenter():
         return token_array[:-1]  # Remove the last element (total token count)
 
     def plot_scenes(self, deltaY_smoothed, system_output, sigma, filename, diff="none", ground_truth=None,
-                    split_len=None, split_method="sentences"):
+                    split_len=None, split_method="sentences", threshold_label=None):
         plt_1 = plt.figure(figsize=(25, 2))
 
         # Extract just the base filename without the path
         base_filename = os.path.basename(filename)
 
+        # Build title with optional threshold label
+        title_suffix = f" (threshold={threshold_label})" if threshold_label else ""
         if split_method == "sentences":
             plt.title(
-                f"Difference in Sentence Embeddings for '{base_filename}' (sigma={sigma}, diff={diff}, {split_method}) using {self.embedder.model_name}")
+                f"Difference in Sentence Embeddings for '{base_filename}' (sigma={sigma}, diff={diff}, {split_method}){title_suffix} using {self.embedder.model_name}")
         elif "token" in split_method:
             plt.title(
-                f"Difference in Sentence Embeddings for '{base_filename}' (sigma={sigma}, diff={diff}, {split_method}, num tokens: {split_len}) using {self.embedder.model_name}")
+                f"Difference in Sentence Embeddings for '{base_filename}' (sigma={sigma}, diff={diff}, {split_method}, num tokens: {split_len}){title_suffix} using {self.embedder.model_name}")
 
         plt.xlabel("Sentence (narrative order)")
         plt.ylabel("Change in Embeddings")
@@ -219,7 +229,9 @@ class SceneSegmenter():
         if ground_truth is not None:
             for scene in ground_truth:
                 plt.axvline(x=scene, color='r')
-        for local_min in system_output:
+        # Filter system_output to only include valid indices for deltaY_smoothed
+        valid_boundaries = [idx for idx in system_output if idx < len(deltaY_smoothed)]
+        for local_min in valid_boundaries:
             plt.plot(local_min, deltaY_smoothed[local_min], marker="o", markersize=5, markeredgecolor="black",
                      markerfacecolor="red")
 
@@ -227,7 +239,10 @@ class SceneSegmenter():
         os.makedirs('Plots', exist_ok=True)
 
         # Generate the save path using just the base filename
-        save_path = os.path.join('Plots', f"{os.path.splitext(base_filename)[0]}_line_only_plot.png")
+        if threshold_label:
+            save_path = os.path.join('Plots', f"{os.path.splitext(base_filename)[0]}_threshold_{threshold_label}.png")
+        else:
+            save_path = os.path.join('Plots', f"{os.path.splitext(base_filename)[0]}_line_only_plot.png")
 
         # Save the plot
         plt.savefig(save_path, dpi=300, bbox_inches='tight')

@@ -76,14 +76,17 @@ def get_classifier_type(classifier_path: Union[str, None]) -> str:
             f"Or provide a valid path (.pth for PyTorch, .json for XGBoost, directory for fine-tuned LLM)"
         )
 
-    # Check if it's a fine-tuned LLM directory (contains adapter_config.json or config.json)
+    # Check if it's a directory-based classifier
     if path.is_dir():
-        if (path / 'adapter_config.json').exists() or (path / 'config.json').exists():
+        config_file = path / 'config.json'
+
+        # Check for fine-tuned LLM (has adapter_config.json or config.json)
+        if (path / 'adapter_config.json').exists() or config_file.exists():
             return 'llm-finetune'
         else:
             raise ValueError(
-                f"Directory '{classifier_path}' doesn't appear to be a fine-tuned LLM model.\n"
-                f"Expected 'adapter_config.json' or 'config.json' inside."
+                f"Directory '{classifier_path}' doesn't appear to be a valid model.\n"
+                f"Expected config files for fine-tuned LLM model inside."
             )
 
     # File-based classifiers

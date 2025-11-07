@@ -7,6 +7,7 @@ scipy>=1.10.0
 sentence-transformers>=2.5.0
 torch>=2.0.0
 transformers>=4.35.0
+xgboost
 
 # LLM Fine-tuning (for llm-finetune classifier type)
 peft>=0.7.0
